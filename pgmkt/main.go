@@ -1,54 +1,62 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	host := flag.String("h", "106.15.194.234", "host for database configure")
-	user := flag.String("u", "root", "user for database configure")
+	host := flag.String("h", "127.0.0.1", "host for database configure")
+	user := flag.String("U", "root", "user for database configure")
 	dbname := flag.String("d", "root", "dbname for database configure")
 	passwd := flag.String("p", "unknown", "passwords for database configure")
-	sslmode := flag.String("s", "disable", "sslmode for database configure")
 	flag.Parse()
 
-	config := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=%s",
-		*host, *passwd, *user, *dbname, *sslmode)
+	log.Println("*** PAPER GOLD MARKET ***")
+	config := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
+		*host, *passwd, *user, *dbname)
 	db, _ := sql.Open("postgres", config)
 	if err := db.Ping(); err != nil {
-		glog.V(0).Infof("connect to postgres[%s]: %v", config, err)
-		return
+		log.Fatalf("connect to postgres[%s]: %v", config, err)
 	}
 	defer db.Close()
-	tbname := "pgmkt"
-	if err := createMktTbl(db, tbname); err != nil {
-		glog.V(0).Infof("create table %s: %v", tbname, err)
-		return
+	const TB_NAME = "pgmkt"
+	if err := createMktTbl(db, TB_NAME); err != nil {
+		log.Fatalf("create market table: %v", TB_NAME, err)
 	}
 
 	tick := 30 * time.Second
 	wait := 5 * time.Second
 	for {
+		retry := false
+		ecount := make(map[string]int)
 		epochBegin := time.Now()
 		for {
-			if err := insertMktData(db, tbname); err != nil {
-				glog.V(0).Infof("insert market data: %v", err)
-				if time.Since(epochBegin)+wait > tick {
-					glog.V(0).Infof("*** quit due to timeout ***")
-					return
+			if err := insertMktData(db, TB_NAME); err != nil {
+				if !retry {
+					log.Println("encounter error, retry to fix it...")
+					retry = true
 				}
+				ecount[err.Error()]++
 				time.Sleep(wait)
 			} else {
+				if retry {
+					var report bytes.Buffer
+					for ers, t := range ecount {
+						report.WriteString(fmt.Sprintf("\n - %s (%d times)", ers, t))
+					}
+					log.Printf("problem solved, error review:%s", report.String())
+				}
 				time.Sleep(tick - time.Since(epochBegin))
 				break
 			}
@@ -90,7 +98,7 @@ func queryPaperGold() (bankBuyPrice, bankSellPrice float64, err error) {
 	}
 	prices := pricePatt.FindSubmatch(body)
 	if len(prices) != 3 {
-		err = fmt.Errorf("price pattern match failed, body: %s", string(body))
+		err = fmt.Errorf("price pattern match failed within body: %s", string(body))
 		return
 	}
 	bankBuyPrice, _ = strconv.ParseFloat(string(prices[1]), 64)
