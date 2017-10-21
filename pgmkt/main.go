@@ -25,14 +25,16 @@ func main() {
 	log.Println("*** PAPER GOLD MARKET ***")
 	config := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
 		*host, *passwd, *user, *dbname)
-	db, _ := sql.Open("postgres", config)
+	db, err := sql.Open("postgres", config)
+	if err != nil {
+		log.Fatalf("open postgres[%s]: %v", config, err)
+	}
 	if err := db.Ping(); err != nil {
 		log.Fatalf("connect to postgres[%s]: %v", config, err)
 	}
 	defer db.Close()
-	const TB_NAME = "pgmkt"
-	if err := createMktTbl(db, TB_NAME); err != nil {
-		log.Fatalf("create market table: %v", TB_NAME, err)
+	if err := createMktTbl(db); err != nil {
+		log.Fatalf("create market table 'pgmkt': %v", err)
 	}
 
 	tick := 30 * time.Second
@@ -42,9 +44,9 @@ func main() {
 		ecount := make(map[string]int)
 		epochBegin := time.Now()
 		for {
-			if err := insertMktData(db, TB_NAME); err != nil {
+			if err := insertMktData(db); err != nil {
 				if !retry {
-					log.Println("encounter error, retry to fix it...")
+					log.Println("encounter error when insert market data into 'pgmkt', retry to fix it...")
 					retry = true
 				}
 				ecount[err.Error()]++
@@ -68,22 +70,21 @@ func main() {
 	}
 }
 
-func insertMktData(db *sql.DB, tbname string) error {
+func insertMktData(db *sql.DB) error {
 	buy, sell, err := queryPaperGold()
 	if err != nil {
 		return fmt.Errorf("query paper gold: %v", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`insert into %s(txtime,bankbuy,banksell) values('now',%.2f,%.2f)`,
-		tbname, buy, sell))
+	_, err = db.Exec("insert into pgmkt(txtime,bankbuy,banksell) values('now',$1,$2)", buy, sell)
 	return err
 }
 
-func createMktTbl(db *sql.DB, tbname string) error {
-	_, err := db.Exec(fmt.Sprintf(`create table if not exists %s(
+func createMktTbl(db *sql.DB) error {
+	_, err := db.Exec(`create table if not exists pgmkt(
 		txtime    timestamp(0) without time zone primary key,
 		bankbuy   numeric(8,2),
 		banksell  numeric(8,2)
-	)`, tbname))
+	)`)
 	return err
 }
 
