@@ -81,7 +81,7 @@ func insertMktData(db *sql.DB) error {
 
 func createMktTbl(db *sql.DB) error {
 	_, err := db.Exec(`create table if not exists pgmkt(
-		txtime    timestamp(0) without time zone primary key,
+		txtime    timestamp(0) with time zone primary key,
 		bankbuy   numeric(8,2),
 		banksell  numeric(8,2)
 	)`)
