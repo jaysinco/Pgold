@@ -53,11 +53,15 @@ func main() {
 				if retry {
 					var report bytes.Buffer
 					for ers, t := range ecount {
-						report.WriteString(fmt.Sprintf("\n - %s (%d times)", ers, t))
+						report.WriteString(fmt.Sprintf("\n - %s(%d times)", ers, t))
 					}
 					log.Printf("problem solved, error review:%s", report.String())
 				}
-				time.Sleep(tick - time.Since(epochBegin))
+				stm := tick - time.Since(epochBegin)
+				if stm < wait {
+					stm = wait
+				}
+				time.Sleep(stm)
 				break
 			}
 		}
