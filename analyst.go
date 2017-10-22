@@ -13,15 +13,15 @@ import (
 func procPaperGold(w http.ResponseWriter, r *http.Request, mlog StdLogger, db *sql.DB) {
 	start, _ := time.Parse("2006-01-02 MST", time.Now().Format("2006-01-02 MST"))
 	end := time.Now()
-	startStr := r.Form.Get("start")
-	endStr := r.Form.Get("end")
-	if t, err := time.Parse("2006-01-02", startStr); startStr != "" && err == nil {
+	startStr := fmt.Sprintf("%s CST", r.Form.Get("start"))
+	endStr := fmt.Sprintf("%s CST", r.Form.Get("end"))
+	if t, err := time.Parse("2006-01-02_15 MST", startStr); startStr != "" && err == nil {
 		start = t
 	}
-	if t, err := time.Parse("2006-01-02", endStr); endStr != "" && err == nil {
+	if t, err := time.Parse("2006-01-02_15 MST", endStr); endStr != "" && err == nil {
 		end = t
 	}
-	mlog("[SEND] plot data graph within range %s ~ %s", start.Format("2006-01-02@15:04"), end.Format("2006-01-02@15:04"))
+	mlog("[SEND] plot data graph within range %s ~ %s", start.Format("2006-01-02#15:04"), end.Format("2006-01-02#15:04"))
 	w.Header().Set("Content-Type", "image/png")
 	if err := drawPaperGoldPrice(db, start, end, w); err != nil {
 		mlog("[ERROR] render graph: %v", err)
@@ -30,7 +30,7 @@ func procPaperGold(w http.ResponseWriter, r *http.Request, mlog StdLogger, db *s
 }
 
 func drawPaperGoldPrice(db *sql.DB, start, end time.Time, w io.Writer) error {
-	rows, err := db.Query("SELECT txtime,bankbuy FROM pgmkt WHERE txtime >= $1 AND txtime <= $2 order by txtime", start, end)
+	rows, err := db.Query("SELECT txtime,bankbuy FROM pgmkt WHERE txtime >= $1 AND txtime < $2 order by txtime", start, end)
 	if err != nil {
 		return fmt.Errorf("query data from 'pgmkt': %v", err)
 	}
