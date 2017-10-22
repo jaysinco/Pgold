@@ -40,13 +40,15 @@ func procWechat(w http.ResponseWriter, r *http.Request, mlog StdLogger, db *sql.
 	}
 	rplStr := genReplyStr(recMsg)
 	mlog("[SEND] %s", rplStr)
-	fmt.Fprintf(w, rplStr)
+	if _, err := fmt.Fprintf(w, rplStr); err != nil {
+		mlog("[ERROR] write response: %v", err)
+	}
 }
 
 func genReplyStr(recMsg *WxRecvMsg) string {
 	reply := "success"
 	if recMsg.Content == "who" {
-		reply = mkWxRplStr(recMsg, "Mr.Robot#Jaysinco")
+		reply = mkWxRplStr(recMsg, "Jaysinco")
 	}
 	return reply
 }

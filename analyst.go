@@ -15,13 +15,13 @@ func procPaperGold(w http.ResponseWriter, r *http.Request, mlog StdLogger, db *s
 	end := time.Now()
 	startStr := r.Form.Get("start")
 	endStr := r.Form.Get("end")
-	if t, err := time.Parse("06-01-02", startStr); startStr != "" && err == nil {
+	if t, err := time.Parse("2006-01-02", startStr); startStr != "" && err == nil {
 		start = t
 	}
-	if t, err := time.Parse("06-01-02", endStr); endStr != "" && err == nil {
+	if t, err := time.Parse("2006-01-02", endStr); endStr != "" && err == nil {
 		end = t
 	}
-	mlog(`[SEND] plot data within range from %s until %s`, start.Format("2006-01-02 15:04"), end.Format("2006-01-02 15:04"))
+	mlog("[SEND] plot data graph within range %s ~ %s", start.Format("2006-01-02@15:04"), end.Format("2006-01-02@15:04"))
 	w.Header().Set("Content-Type", "image/png")
 	if err := drawPaperGoldPrice(db, start, end, w); err != nil {
 		mlog("[ERROR] render graph: %v", err)
@@ -64,11 +64,11 @@ func drawPaperGoldPrice(db *sql.DB, start, end time.Time, w io.Writer) error {
 	}
 
 	graph := chart.Chart{
-		Title:      "ICBC Paper Gold-Bank Buy Price",
+		Title:      "ICBC Paper Gold Bank Buy Price",
 		TitleStyle: chart.Style{Show: true},
 		XAxis: chart.XAxis{
 			Style:          chart.Style{Show: true},
-			ValueFormatter: chart.TimeValueFormatterWithFormat("01-02 15:04"),
+			ValueFormatter: chart.TimeValueFormatterWithFormat("01-02#15:04"),
 		},
 		YAxis: chart.YAxis{
 			Style: chart.Style{Show: true},
