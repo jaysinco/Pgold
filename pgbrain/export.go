@@ -11,6 +11,24 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func main() {
+	filename := "pgmkt.dat"
+	// fmt.Println(exportMktData(filename))
+	fmt.Println(checkDataExport(filename))
+}
+
+func checkDataExport(filename string) error {
+	pgcs, err := readMktData(filename)
+	if err != nil {
+		return fmt.Errorf("read market data from '%s': %v", filename, err)
+	}
+	fmt.Printf("%d records read from '%s'\n", len(pgcs), filename)
+	for i := 0; i < 5; i++ {
+		fmt.Println(pgcs[i])
+	}
+	return nil
+}
+
 func readMktData(filename string) ([]pgprice, error) {
 	dfile, err := os.Open(filename)
 	if err != nil {
@@ -29,8 +47,8 @@ func readMktData(filename string) ([]pgprice, error) {
 	return pgcs, nil
 }
 
-func db2file(filename string) {
-	host := flag.String("h", "106.15.194.234", "host for database configure")
+func exportMktData(filename string) error {
+	host := flag.String("h", "127.0.0.1", "host for database configure")
 	user := flag.String("U", "root", "user for database configure")
 	dbname := flag.String("d", "root", "dbname for database configure")
 	passwd := flag.String("p", "unknown", "passwords for database configure")
@@ -40,35 +58,31 @@ func db2file(filename string) {
 		*host, *passwd, *user, *dbname)
 	db, err := sql.Open("postgres", config)
 	if err != nil {
-		fmt.Printf("open postgres[%s]: %v\n", config, err)
-		return
+		return fmt.Errorf("open postgres[%s]: %v", config, err)
 	}
 	if err := db.Ping(); err != nil {
-		fmt.Printf("connect to postgres[%s]: %v\n", config, err)
-		return
+		return fmt.Errorf("connect to postgres[%s]: %v", config, err)
 	}
 	defer db.Close()
+
 	pgcs, err := queryMktData(db)
 	if err != nil {
-		fmt.Printf("query market data: %v\n", err)
-		return
+		return fmt.Errorf("query market data: %v", err)
 	}
 	dfile, err := os.Create(filename)
 	if err != nil {
-		fmt.Printf("create file '%s': %v\n", filename, err)
-		return
+		return fmt.Errorf("create file '%s': %v", filename, err)
 	}
 	defer dfile.Close()
-	fmt.Printf("writing records into file '%s'...\n", filename)
-	if err := binary.Write(dfile, binary.LittleEndian, int64(len(pgcs))); err != nil {
-		fmt.Printf("write record num header: %v\n", err)
-		return
+	num := len(pgcs)
+	if err := binary.Write(dfile, binary.LittleEndian, int64(num)); err != nil {
+		return fmt.Errorf("write record num header: %v", err)
 	}
 	if err := binary.Write(dfile, binary.LittleEndian, pgcs); err != nil {
-		fmt.Printf("write records: %v\n", err)
-		return
+		return fmt.Errorf("write records: %v", err)
 	}
-	fmt.Println("done!")
+	fmt.Printf("%d records written into '%s'\n", num, filename)
+	return nil
 }
 
 func queryMktData(db *sql.DB) ([]pgprice, error) {
@@ -85,31 +99,32 @@ func queryMktData(db *sql.DB) ([]pgprice, error) {
 		if err := rows.Scan(&txtime, &pgc.Bankbuy); err != nil {
 			return nil, fmt.Errorf("scan rows: %v", err)
 		}
-		pgc.Year = int32(txtime.Year())
-		pgc.Month = int8(txtime.Month())
-		pgc.Day = int8(txtime.Day())
-		pgc.Hour = int8(txtime.Hour())
-		pgc.Minute = int8(txtime.Minute())
-		pgc.Second = int8(txtime.Second())
-		pgcs = append(pgcs, pgc)
+		if isTxOpen(txtime) {
+			pgc.Timestamp = txtime.Unix()
+			pgcs = append(pgcs, pgc)
+		}
 		count++
-		fmt.Printf("\rrows read from database: %d", count)
+		fmt.Printf("\r%d rows read from database", count)
 	}
 	fmt.Print("\n")
 	return pgcs, nil
 }
 
+func isTxOpen(tm *time.Time) bool {
+	weekday := tm.Weekday()
+	hour := tm.Hour()
+	return !((weekday == time.Saturday && hour >= 4) ||
+		(weekday == time.Sunday) ||
+		(weekday == time.Monday && hour < 7))
+}
+
 type pgprice struct {
-	Year    int32
-	Month   int8
-	Day     int8
-	Hour    int8
-	Minute  int8
-	Second  int8
-	Bankbuy float32
+	Timestamp int64
+	Bankbuy   float32
 }
 
 func (p pgprice) String() string {
+	tm := time.Unix(p.Timestamp, 0)
 	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f",
-		p.Year, p.Month, p.Day, p.Hour, p.Minute, p.Second, p.Bankbuy)
+		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy)
 }
