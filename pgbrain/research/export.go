@@ -13,7 +13,7 @@ import (
 
 func main() {
 	filename := "pgmkt.dat"
-	// fmt.Println(exportMktData(filename))
+	fmt.Println(exportMktData(filename))
 	fmt.Println(checkDataExport(filename))
 }
 
