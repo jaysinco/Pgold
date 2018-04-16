@@ -17,44 +17,30 @@ func main() {
 	pwd := flag.String("p", "unknown", "login password of postgreSQL")
 	flag.Parse()
 
-	log.Println("*** PAPER GOLD BRAIN ***")
+	log.Println("[PGBAN] start")
 	token := fmt.Sprintf("host=%s password=%s user=root dbname=root sslmode=disable", *host, *pwd)
 	db, err := sql.Open("postgres", token)
 	if err != nil {
-		log.Fatalf("open postgres[%s]: %v", token, err)
+		log.Fatalf("[PGBAN] open postgres[%s]: %v", token, err)
 	}
 	if err := db.Ping(); err != nil {
-		log.Fatalf("connect to postgres[%s]: %v", token, err)
+		log.Fatalf("[PGBAN] connect to postgres[%s]: %v", token, err)
 	}
 	defer db.Close()
 
-	var lstWarnTm time.Time
 	tick := 30 * time.Second
-	warnSep := 60 * time.Minute
 	for {
-		if time.Since(lstWarnTm) > warnSep {
-			warning, err := checkWarning(db)
-			if err != nil {
-				log.Printf("check warning: %v", err)
-			}
-			if warning != "" {
-				body := fmt.Sprintf(`<ul style='font-size:15px'>%s</ul>`, warning)
-				if err := sendMail("纸黄金价格波动提示", body); err != nil {
-					log.Printf("send email: %v", err)
-				} else {
-					lstWarnTm = time.Now()
-				}
-			}
+		if err := checkWarning(db); err != nil {
+			log.Printf("[PGBAN] check warning: %v", err)
 		}
 		time.Sleep(tick)
 	}
 }
 
-func checkWarning(db *sql.DB) (string, error) {
-	var warning string
-	// -warning: [peak] check
-	threshold := float32(1.0)
-	duration := 30 * time.Minute
+func checkWarning(db *sql.DB) error {
+	threshold := float32(0.75)
+	duration := 45 * time.Minute
+
 	start := time.Now().Add(-1 * duration).Unix()
 	row, err := db.Query(`
 		SELECT MAX(bankbuy) maxbuy, 
@@ -63,20 +49,35 @@ func checkWarning(db *sql.DB) (string, error) {
 		FROM (SELECT extract(epoch from txtime) txtmsp, bankbuy FROM pgmkt ORDER BY txtime) tmp
 		WHERE txtmsp >= $1`, start)
 	if err != nil {
-		return warning, fmt.Errorf("query data from table 'pgmkt': %v", err)
+		return fmt.Errorf("query data from table 'pgmkt': %v", err)
 	}
 	defer row.Close()
 	row.Next()
 	var maxVal, minVal, nowVal float32
 	if err := row.Scan(&maxVal, &minVal, &nowVal); err != nil {
-		return warning, fmt.Errorf("scan rows: %v", err)
+		return fmt.Errorf("scan rows: %v", err)
 	}
-	if (maxVal-nowVal > threshold) || (nowVal-minVal > threshold) {
-		warning += fmt.Sprintf(`<li>threshold reached since last <u>%s</u> 
-        	<br>—— [R]<b>%.2f</b> / [H]<b>%.2f</b> / [L]<b>%.2f</b></br>
-    		</li>`, duration, nowVal, maxVal, minVal)
+
+	var sub string
+	if maxVal-nowVal > threshold {
+		log.Printf("[PGBAN] lower threshold reached([H]%.2f - [R]%.2f > [T]%.2f) during last %s",
+			maxVal, nowVal, threshold, duration)
+		sub += fmt.Sprintf("Paper gold is down %.2f RMB/g during last few minutes.", maxVal-nowVal)
 	}
-	return warning, nil
+	if nowVal-minVal > threshold {
+		log.Printf("[PGBAN] upper threshold reached([R]%.2f - [L]%.2f > [T]%.2f) during last %s",
+			nowVal, minVal, threshold, duration)
+		sub += fmt.Sprintf("Paper gold is up %.2f RMB/g during last few minutes.", nowVal-minVal)
+	}
+
+	if sub != "" {
+		if err := sendMail(sub, "ヽ(￣ω￣(￣ω￣〃)ゝ"); err != nil {
+			return fmt.Errorf("send email: %v", err)
+		}
+		log.Println("[PGBAN] email sent successfully")
+		time.Sleep(duration)
+	}
+	return nil
 }
 
 func sendMail(subject, body string) error {

@@ -22,19 +22,19 @@ func main() {
 	passwd := flag.String("p", "unknown", "passwords for database configure")
 	flag.Parse()
 
-	log.Println("*** PAPER GOLD MARKET ***")
+	log.Println("[PGMKT] start")
 	config := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
 		*host, *passwd, *user, *dbname)
 	db, err := sql.Open("postgres", config)
 	if err != nil {
-		log.Fatalf("open postgres[%s]: %v", config, err)
+		log.Fatalf("[PGMKT] open postgres[%s]: %v", config, err)
 	}
 	if err := db.Ping(); err != nil {
-		log.Fatalf("connect to postgres[%s]: %v", config, err)
+		log.Fatalf("[PGMKT] connect to postgres[%s]: %v", config, err)
 	}
 	defer db.Close()
 	if err := createMktTbl(db); err != nil {
-		log.Fatalf("create market table 'pgmkt': %v", err)
+		log.Fatalf("[PGMKT] create market table 'pgmkt': %v", err)
 	}
 
 	tick := 30 * time.Second
@@ -46,7 +46,7 @@ func main() {
 		for {
 			if err := insertMktData(db); err != nil {
 				if !retry {
-					log.Println("encounter error when insert market data into 'pgmkt', retry to fix it...")
+					log.Println("[PGMKT] fixing error encountered when update market data")
 					retry = true
 				}
 				ecount[err.Error()]++
@@ -55,9 +55,12 @@ func main() {
 				if retry {
 					var report bytes.Buffer
 					for ers, t := range ecount {
+						if len(ers) > 80 {
+							ers = ers[:80] + "..."
+						}
 						report.WriteString(fmt.Sprintf("\n - %s(%d times)", ers, t))
 					}
-					log.Printf("problem solved, error review:%s", report.String())
+					log.Printf("[PGMKT] problem solved, error review:%s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {

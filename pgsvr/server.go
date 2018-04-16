@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,12 +22,10 @@ func main() {
 	token := fmt.Sprintf("host=%s password=%s user=root dbname=root sslmode=disable", *host, *pwd)
 	db, err := sql.Open("postgres", token)
 	if err != nil {
-		fmt.Printf("open postgres[%s]: %v\n", token, err)
-		return
+		log.Fatalf("[PGSVR] open postgres[%s]: %v\n", token, err)
 	}
 	if err := db.Ping(); err != nil {
-		fmt.Printf("connect to postgres[%s]: %v\n", token, err)
-		return
+		log.Fatalf("[PGSVR] connect to postgres[%s]: %v\n", token, err)
 	}
 	defer db.Close()
 
@@ -46,8 +45,8 @@ func main() {
 		Addr:    ":80",
 		Handler: mux,
 	}
-	fmt.Printf("jserver is listening on port%s...\n", server.Addr)
-	fmt.Printf("jserver stop: %v\n", server.ListenAndServe())
+	log.Printf("[PGSVR] listening on port%s\n", server.Addr)
+	log.Printf("[PGSVR] stop unexpectedly: %v\n", server.ListenAndServe())
 }
 
 type klinePrice struct {
