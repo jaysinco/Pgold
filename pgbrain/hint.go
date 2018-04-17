@@ -14,11 +14,14 @@ import (
 
 func main() {
 	host := flag.String("h", "127.0.0.1", "server host of postgreSQL")
-	pwd := flag.String("p", "unknown", "login password of postgreSQL")
+	user := flag.String("U", "root", "user name of postgreSQL")
+	dbname := flag.String("d", "root", "database name of postgreSQL")
+	passwd := flag.String("p", "unknown", "login password of postgreSQL")
 	flag.Parse()
 
 	log.Println("[PGBAN] start")
-	token := fmt.Sprintf("host=%s password=%s user=root dbname=root sslmode=disable", *host, *pwd)
+	token := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
+		*host, *passwd, *user, *dbname)
 	db, err := sql.Open("postgres", token)
 	if err != nil {
 		log.Fatalf("[PGBAN] open postgres[%s]: %v", token, err)
@@ -58,20 +61,22 @@ func checkWarning(db *sql.DB) error {
 		return fmt.Errorf("scan rows: %v", err)
 	}
 
-	var sub string
-	if maxVal-nowVal > threshold {
-		log.Printf("[PGBAN] lower threshold reached([H]%.2f - [R]%.2f > [T]%.2f) during last %s",
-			maxVal, nowVal, threshold, duration)
-		sub += fmt.Sprintf("Paper gold is down %.2f RMB/g during last few minutes.", maxVal-nowVal)
-	}
+	var sub, body string
 	if nowVal-minVal > threshold {
 		log.Printf("[PGBAN] upper threshold reached([R]%.2f - [L]%.2f > [T]%.2f) during last %s",
 			nowVal, minVal, threshold, duration)
-		sub += fmt.Sprintf("Paper gold is up %.2f RMB/g during last few minutes.", nowVal-minVal)
+		sub = fmt.Sprintf("Paper gold is up %.2f RMB/g during last few minutes.", nowVal-minVal)
+		body = "(●'◡'●)ﾉ"
+	}
+	if maxVal-nowVal > threshold {
+		log.Printf("[PGBAN] lower threshold reached([H]%.2f - [R]%.2f > [T]%.2f) during last %s",
+			maxVal, nowVal, threshold, duration)
+		sub = fmt.Sprintf("Paper gold is down %.2f RMB/g during last few minutes.", maxVal-nowVal)
+		body = "థ౪థ.........."
 	}
 
-	if sub != "" {
-		if err := sendMail(sub, "ヽ(￣ω￣(￣ω￣〃)ゝ"); err != nil {
+	if sub != "" || body != "" {
+		if err := sendMail(sub, body); err != nil {
 			return fmt.Errorf("send email: %v", err)
 		}
 		log.Println("[PGBAN] email sent successfully")

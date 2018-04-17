@@ -16,21 +16,21 @@ import (
 )
 
 func main() {
-	host := flag.String("h", "127.0.0.1", "host for database configure")
-	user := flag.String("U", "root", "user for database configure")
-	dbname := flag.String("d", "root", "dbname for database configure")
-	passwd := flag.String("p", "unknown", "passwords for database configure")
+	host := flag.String("h", "127.0.0.1", "server host of postgreSQL")
+	user := flag.String("U", "root", "user name of postgreSQL")
+	dbname := flag.String("d", "root", "database name of postgreSQL")
+	passwd := flag.String("p", "unknown", "login password of postgreSQL")
 	flag.Parse()
 
 	log.Println("[PGMKT] start")
-	config := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
+	token := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
 		*host, *passwd, *user, *dbname)
-	db, err := sql.Open("postgres", config)
+	db, err := sql.Open("postgres", token)
 	if err != nil {
-		log.Fatalf("[PGMKT] open postgres[%s]: %v", config, err)
+		log.Fatalf("[PGMKT] open postgres[%s]: %v", token, err)
 	}
 	if err := db.Ping(); err != nil {
-		log.Fatalf("[PGMKT] connect to postgres[%s]: %v", config, err)
+		log.Fatalf("[PGMKT] connect to postgres[%s]: %v", token, err)
 	}
 	defer db.Close()
 	if err := createMktTbl(db); err != nil {
@@ -55,12 +55,12 @@ func main() {
 				if retry {
 					var report bytes.Buffer
 					for ers, t := range ecount {
-						if len(ers) > 80 {
-							ers = ers[:80] + "..."
+						if len(ers) > 100 {
+							ers = ers[:100] + "..."
 						}
-						report.WriteString(fmt.Sprintf("\n - %s(%d times)", ers, t))
+						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
-					log.Printf("[PGMKT] problem solved, error review:%s", report.String())
+					log.Printf("[PGMKT] problem solved, error review => %s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {

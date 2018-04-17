@@ -17,9 +17,13 @@ import (
 
 func main() {
 	host := flag.String("h", "127.0.0.1", "server host of postgreSQL")
-	pwd := flag.String("p", "unknown", "login password of postgreSQL")
+	user := flag.String("U", "root", "user name of postgreSQL")
+	dbname := flag.String("d", "root", "database name of postgreSQL")
+	passwd := flag.String("p", "unknown", "login password of postgreSQL")
 	flag.Parse()
-	token := fmt.Sprintf("host=%s password=%s user=root dbname=root sslmode=disable", *host, *pwd)
+
+	token := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
+		*host, *passwd, *user, *dbname)
 	db, err := sql.Open("postgres", token)
 	if err != nil {
 		log.Fatalf("[PGSVR] open postgres[%s]: %v\n", token, err)

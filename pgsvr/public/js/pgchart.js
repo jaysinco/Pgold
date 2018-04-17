@@ -12,11 +12,19 @@ $(function () {
             }
           }
     });
+    var nday = new Date();
+    var year = nday.getFullYear();
+    var month = nday.getMonth()+1;
+    var day = nday.getDate();
+    var today = year+'-'+(month>9?month:'0'+month)+"-"+(day>9?day:'0'+day);
+    document.getElementById('tick_date').style = dateStyle;
+    document.getElementById('tick_date').value = today;
     drawPaperGoldTick();
-    state = "tick"
+    state = "tick";
 });
 
 var state = null;
+var dateStyle = 'display:inline;border:none;float:right';
 
 function toggle() {
     if (state == "tick") {
@@ -30,9 +38,9 @@ function toggle() {
 
 function drawPaperGoldTick() {
     var nday = new Date()
-    var today = nday.getFullYear()+"-"+(nday.getMonth()+1)+"-"+nday.getDate()
-    var start =  Math.floor(Date.parse(new Date(today))/1000);
-    var end = Math.floor(Date.parse(new Date())/1000);
+    var date = document.getElementById('tick_date').value
+    var start =  Math.floor(Date.parse(date+' 00:00:00')/1000);
+    var end = Math.floor(Date.parse(date+' 23:59:59')/1000);
     $.getJSON('/papergold/price/tick/json/by/timestamp?start='+start+'&end='+end, function (data) {
         var pgcs = [];
         for (var i = 0; i < data.length; i += 1) {
@@ -127,6 +135,7 @@ function drawPaperGoldTick() {
                 data: pgcs
             }]
         });
+        document.getElementById('tick_date').style = dateStyle;
     });
 };
 
@@ -221,5 +230,6 @@ function drawPaperGoldKLine() {
                 data: pgklines
             }]
         });
+        document.getElementById('tick_date').style = 'display:none';
     });
 };
