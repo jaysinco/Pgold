@@ -65,13 +65,15 @@ func checkWarning(db *sql.DB) error {
 	if nowVal-minVal > threshold {
 		log.Printf("[PGBAN] upper threshold reached([R]%.2f - [L]%.2f > [T]%.2f) during last %s",
 			nowVal, minVal, threshold, duration)
-		sub = fmt.Sprintf("Paper gold is up %.2f RMB/g during last few minutes.", nowVal-minVal)
-		body = "(●'◡'●)ﾉ"
+		sub = fmt.Sprintf("Paper gold is up %.2f RMB/g during last %d minutes.",
+			nowVal-minVal, duration/time.Minute)
+		body = "(๑•̀ㅂ•́)و✧"
 	}
 	if maxVal-nowVal > threshold {
 		log.Printf("[PGBAN] lower threshold reached([H]%.2f - [R]%.2f > [T]%.2f) during last %s",
 			maxVal, nowVal, threshold, duration)
-		sub = fmt.Sprintf("Paper gold is down %.2f RMB/g during last few minutes.", maxVal-nowVal)
+		sub = fmt.Sprintf("Paper gold is down %.2f RMB/g during last %d minutes.",
+			maxVal-nowVal, duration/time.Minute)
 		body = "థ౪థ.........."
 	}
 

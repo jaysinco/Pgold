@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -58,6 +59,7 @@ func main() {
 						if len(ers) > 100 {
 							ers = ers[:100] + "..."
 						}
+						ers = strings.Replace(ers, "\n", "", -1)
 						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
 					log.Printf("[PGMKT] problem solved, error review => %s", report.String())

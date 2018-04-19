@@ -24,7 +24,7 @@ $(function () {
 });
 
 var state = null;
-var dateStyle = 'display:inline;border:none;float:right';
+var dateStyle = 'display:inline;border:none;float:right;font-size:10px;width:83px;';
 
 function toggle() {
     if (state == "tick") {
