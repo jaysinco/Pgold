@@ -43,12 +43,32 @@ function drawPaperGoldTick() {
     var end = Math.floor(Date.parse(date+' 23:59:59')/1000);
     $.getJSON('/papergold/price/tick/json/by/timestamp?start='+start+'&end='+end, function (data) {
         var pgcs = [];
+        var ymax = -1.0;
+        var ymin = 9999.0;
         for (var i = 0; i < data.length; i += 1) {
+            if (data[i].p > ymax) {
+                ymax = data[i].p;
+            };
+            if (data[i].p < ymin) {
+                ymin = data[i].p;
+            };
             pgcs.push([
                 data[i].t*1000,
                 data[i].p
-            ])
+            ]);
         }
+        var ylimax = 0.0;
+        var ylimin = 0.0;
+        var W = 3.0;
+        var R = 4.0 / 5.0;
+        if (ymax - ymin < W) {
+            ylimax = (W - (ymax - ymin)) * R + ymax; 
+            ylimin = ymin - (W - (ymax - ymin)) * (1 - R);
+        } else {
+            ylimax = 0.5 + ymax;
+            ylimin = ymin - 0.5;
+        }
+        console.log(ymax, ymin, ylimax, ylimin)
         $('#pg_price').highcharts({
             chart: {
                 zoomType: 'x',
@@ -99,41 +119,39 @@ function drawPaperGoldTick() {
                 title: {
                     text: 'CNY'
                 },
+                max: ylimax,
+                min: ylimin,
             },
             legend: {
                 enabled: false
             },
-            plotOptions: {
-                area: {
-                    fillColor: {
-                        linearGradient: {
-                            x1: 0,
-                            y1: 0,
-                            x2: 0,
-                            y2: 1
-                        },
-                        stops: [
-                            [0, Highcharts.getOptions().colors[0]],
-                            [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
-                        ]
-                    },
-                    marker: {
-                        radius: 2
-                    },
-                    lineWidth: 1,
-                    states: {
-                        hover: {
-                            lineWidth: 1
-                        }
-                    },
-                    threshold: null
-                }
-            },
             series: [{
-                type: 'area',
+                type: 'spline',
                 name: 'Paper Gold',
-                data: pgcs
-            }]
+                data: pgcs,
+                threshold : null,
+                lineWidth: 2,
+                marker: {
+                    radius: 2,
+                },
+                states: {
+                    hover: {
+                        lineWidth: 2,
+                    }
+                },
+                fillColor : {
+                    linearGradient : {
+                        x1: 0,
+                        y1: 0,
+                        x2: 0,
+                        y2: 1
+                    },
+                    stops : [
+                        [0, Highcharts.getOptions().colors[0]],
+                        [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
+                    ]
+                }
+            }],
         });
         document.getElementById('tick_date').style = dateStyle;
     });
