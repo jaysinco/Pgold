@@ -17,23 +17,24 @@ $(function () {
     var month = nday.getMonth()+1;
     var day = nday.getDate();
     var today = year+'-'+(month>9?month:'0'+month)+"-"+(day>9?day:'0'+day);
-    document.getElementById('tick_date').style = dateStyle;
     document.getElementById('tick_date').value = today;
     drawPaperGoldTick();
-    state = "tick";
+    state = "kline";
 });
 
 var state = null;
-var dateStyle = 'display:inline;border:none;float:right;font-size:10px;width:83px;';
 
 function toggle() {
-    if (state == "tick") {
+    if (state == "kline") {
+        document.getElementById('toggler').style.backgroundColor = '#FF2D2D';
         drawPaperGoldKLine();
-        state = "history";
-    } else if (state == "history") {
+        state = "spline";
+    } else if (state == "spline") {
+        document.getElementById('toggler').style.backgroundColor = '#3E8CD0';
         drawPaperGoldTick();
-        state = "tick";
+        state = "kline";
     }
+    
 };
 
 function drawPaperGoldTick() {
@@ -68,7 +69,6 @@ function drawPaperGoldTick() {
             ylimax = 0.5 + ymax;
             ylimin = ymin - 0.5;
         }
-        console.log(ymax, ymin, ylimax, ylimin)
         $('#pg_price').highcharts({
             chart: {
                 zoomType: 'x',
@@ -78,10 +78,11 @@ function drawPaperGoldTick() {
                 enabled: false
             },
             title: {
-                text: 'ICBC Paper Gold Bankbuy Price',
+                text: 'ICBC Paper Gold Price',
                 style:{
-                    fontWeight:"bold",
-                    fontSize: "16px"
+                    fontSize: "25px",
+                    fontWeight: "bold",
+                    fontFamily:"cursive",
                 }
             },
             xAxis: {
@@ -95,7 +96,11 @@ function drawPaperGoldTick() {
                     week: '%m-%d',
                     month: '%Y-%m',
                     year: '%Y'
-                }
+                },
+                crosshair: true,
+                minPadding: 0.06,
+                maxPadding: 0.06,
+                minRange: 3600000 * 24,
             },
             tooltip: {
                 dateTimeLabelFormats: {
@@ -114,10 +119,14 @@ function drawPaperGoldTick() {
                 opposite: true,
                 labels: {
                     align: 'right',
-                    x: -3
+                    x: -3,
                 },
+                crosshair: true,
                 title: {
-                    text: 'CNY'
+                    text: 'CNY',
+                    style:{
+                        fontFamily:"cursive",
+                    }
                 },
                 max: ylimax,
                 min: ylimin,
@@ -127,7 +136,7 @@ function drawPaperGoldTick() {
             },
             series: [{
                 type: 'spline',
-                name: 'Paper Gold',
+                name: 'Bankbuy',
                 data: pgcs,
                 threshold : null,
                 lineWidth: 2,
@@ -139,21 +148,9 @@ function drawPaperGoldTick() {
                         lineWidth: 2,
                     }
                 },
-                fillColor : {
-                    linearGradient : {
-                        x1: 0,
-                        y1: 0,
-                        x2: 0,
-                        y2: 1
-                    },
-                    stops : [
-                        [0, Highcharts.getOptions().colors[0]],
-                        [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
-                    ]
-                }
             }],
         });
-        document.getElementById('tick_date').style = dateStyle;
+        document.getElementById('tick_date').style.display = '';
     });
 };
 
@@ -206,11 +203,12 @@ function drawPaperGoldKLine() {
                 },
                 selected: 0
             },
-    
             title: {
-                text: 'ICBC Paper Gold Bankbuy History',
+                text: 'ICBC Paper Gold Price',
                 style:{
-                    fontWeight:"bold",
+                    fontSize: "25px",
+                    fontWeight: "bold",
+                    fontFamily:"cursive",
                 }
             },
             xAxis: {
@@ -248,6 +246,6 @@ function drawPaperGoldKLine() {
                 data: pgklines
             }]
         });
-        document.getElementById('tick_date').style = 'display:none';
+        document.getElementById('tick_date').style.display = 'none';
     });
 };

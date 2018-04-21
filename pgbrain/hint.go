@@ -63,14 +63,14 @@ func checkWarning(db *sql.DB) error {
 
 	var sub, body string
 	if nowVal-minVal > threshold {
-		log.Printf("[PGBAN] upper threshold reached([R]%.2f - [L]%.2f > [T]%.2f) during last %s",
+		log.Printf("[PGBAN] upper threshold reached(%.2f-%.2f>%.2f) during last %s",
 			nowVal, minVal, threshold, duration)
 		sub = fmt.Sprintf("Paper gold is up %.2f RMB/g during last %d minutes.",
 			nowVal-minVal, duration/time.Minute)
 		body = "(๑•̀ㅂ•́)و✧"
 	}
 	if maxVal-nowVal > threshold {
-		log.Printf("[PGBAN] lower threshold reached([H]%.2f - [R]%.2f > [T]%.2f) during last %s",
+		log.Printf("[PGBAN] lower threshold reached(%.2f-%.2f>%.2f) during last %s",
 			maxVal, nowVal, threshold, duration)
 		sub = fmt.Sprintf("Paper gold is down %.2f RMB/g during last %d minutes.",
 			maxVal-nowVal, duration/time.Minute)
@@ -81,7 +81,6 @@ func checkWarning(db *sql.DB) error {
 		if err := sendMail(sub, body); err != nil {
 			return fmt.Errorf("send email: %v", err)
 		}
-		log.Println("[PGBAN] email sent successfully")
 		time.Sleep(duration)
 	}
 	return nil

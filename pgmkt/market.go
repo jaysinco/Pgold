@@ -47,7 +47,6 @@ func main() {
 		for {
 			if err := insertMktData(db); err != nil {
 				if !retry {
-					log.Println("[PGMKT] fixing error encountered when update market data")
 					retry = true
 				}
 				ecount[err.Error()]++
@@ -62,7 +61,7 @@ func main() {
 						ers = strings.Replace(ers, "\n", "", -1)
 						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
-					log.Printf("[PGMKT] problem solved, error review => %s", report.String())
+					log.Printf("[PGMKT] error encountered then fixed => %s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {
