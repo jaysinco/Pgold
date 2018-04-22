@@ -98,8 +98,8 @@ function drawPaperGoldTick() {
                     year: '%Y'
                 },
                 crosshair: true,
-                minPadding: 0.06,
-                maxPadding: 0.06,
+                minPadding: 0.01,
+                maxPadding: 0.01,
                 minRange: 3600000 * 24,
             },
             tooltip: {
