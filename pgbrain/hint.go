@@ -55,7 +55,9 @@ func checkWarning(db *sql.DB) error {
 		return fmt.Errorf("query data from table 'pgmkt': %v", err)
 	}
 	defer row.Close()
-	row.Next()
+	if ok := row.Next(); !ok {
+		return fmt.Errorf("next row empty: haven't received any data from pgmkt since last %v", duration)
+	}
 	var maxVal, minVal, nowVal float32
 	if err := row.Scan(&maxVal, &minVal, &nowVal); err != nil {
 		return fmt.Errorf("scan rows: %v", err)
