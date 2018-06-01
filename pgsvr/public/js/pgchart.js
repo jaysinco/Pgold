@@ -39,7 +39,7 @@ function toggle() {
 
 function drawPaperGoldTick() {
     var nday = new Date()
-    var date = document.getElementById('tick_date').value
+    var date = document.getElementById('tick_date').value.replace(/-/g, '/')
     var start =  Math.floor(Date.parse(date+' 00:00:00')/1000);
     var end = Math.floor(Date.parse(date+' 23:59:59')/1000);
     $.getJSON('/papergold/price/tick/json/by/timestamp?start='+start+'&end='+end, function (data) {
