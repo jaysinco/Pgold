@@ -8,7 +8,7 @@ $(function () {
         },
         chart: {
             style: {
-              fontFamily: 'Georgia'
+              fontFamily: 'Arial'
             }
           }
     });
@@ -80,9 +80,9 @@ function drawPaperGoldTick() {
             title: {
                 text: 'ICBC Paper Gold Price',
                 style:{
-                    fontSize: "25px",
-                    fontWeight: "bold",
-                    fontFamily:"cursive",
+                    fontSize: "20px",
+                    //fontWeight: "bold",
+                    fontFamily:"Arial",
                 }
             },
             xAxis: {
@@ -125,7 +125,7 @@ function drawPaperGoldTick() {
                 title: {
                     text: 'CNY',
                     style:{
-                        fontFamily:"cursive",
+                        fontFamily:"Arial",
                     }
                 },
                 max: ylimax,
@@ -206,9 +206,9 @@ function drawPaperGoldKLine() {
             title: {
                 text: 'ICBC Paper Gold Price',
                 style:{
-                    fontSize: "25px",
-                    fontWeight: "bold",
-                    fontFamily:"cursive",
+                    fontSize: "20px",
+                    //fontWeight: "bold",
+                    fontFamily:"Arial",
                 }
             },
             xAxis: {
