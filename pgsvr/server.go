@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
@@ -8,8 +9,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -33,6 +37,12 @@ func main() {
 	}
 	defer db.Close()
 
+	rnd := rand.New(rand.NewSource(time.Now().Unix()))
+	pmset, err := mkPoemList("./public/text/poem.txt")
+	if err != nil {
+		log.Fatalf("[PGSVR] prepare poem set: %v\n", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/favicon.ico" {
@@ -44,6 +54,7 @@ func main() {
 	mux.Handle("/public/", http.StripPrefix("/public", http.FileServer(http.Dir("./public"))))
 	mux.Handle("/papergold/price/tick/json/by/timestamp", &tickPrice{DB: db, Mode: typeJSON})
 	mux.Handle("/papergold/price/kline/json/all/day", &klinePrice{DB: db})
+	mux.Handle("/poem/random", &randomPoet{Rnd: rnd, Set: pmset})
 
 	server := &http.Server{
 		Addr:    ":80",
@@ -189,4 +200,45 @@ func writeBinaryTick(pgcs []pgprice, out io.Writer) error {
 		return fmt.Errorf("write records: %v", err)
 	}
 	return nil
+}
+
+type randomPoet struct {
+	Rnd *rand.Rand
+	Set []*poetry
+}
+
+func (rp *randomPoet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	pm := *rp.Set[rp.Rnd.Intn(len(rp.Set))]
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	encoder := json.NewEncoder(w)
+	encoder.Encode(pm)
+}
+
+func mkPoemList(filename string) ([]*poetry, error) {
+	fp, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("open file %v: %v", filename, err)
+	}
+	defer fp.Close()
+	set := make([]*poetry, 0)
+	reader := bufio.NewReader(fp)
+	for {
+		line, _, err := reader.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		parts := strings.Split(string(line), "::")
+		if len(parts) != 3 {
+			continue
+		}
+		pm := &poetry{parts[0], parts[1], strings.Split(parts[2], "/")}
+		set = append(set, pm)
+	}
+	return set, nil
+}
+
+type poetry struct {
+	Title      string
+	Author     string
+	Paragraphs []string
 }

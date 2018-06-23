@@ -34,7 +34,6 @@ function toggle() {
         drawPaperGoldTick();
         state = "kline";
     }
-    
 };
 
 function drawPaperGoldTick() {
@@ -151,6 +150,7 @@ function drawPaperGoldTick() {
             }],
         });
         document.getElementById('tick_date').style.display = '';
+        drawRandPoem();
     });
 };
 
@@ -247,5 +247,6 @@ function drawPaperGoldKLine() {
             }]
         });
         document.getElementById('tick_date').style.display = 'none';
+        drawRandPoem();
     });
 };
