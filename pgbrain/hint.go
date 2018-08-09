@@ -90,7 +90,7 @@ func checkWarning(db *sql.DB) error {
 
 func sendMail(subject, body string) error {
 	from := "jaysinco@qq.com"
-	to := "jaysinco@163.com;chenghuiasong@126.com;tracytangshi@163.com"
+	to := "jaysinco@163.com;1052386099@qq.com;tracytangshi@163.com"
 	pwd := "oolmgpqhbvqyicfb"
 	domain := from[strings.Index(from, "@")+1:]
 	auth := smtp.PlainAuth("", from, pwd, fmt.Sprintf("smtp.%s", domain))
