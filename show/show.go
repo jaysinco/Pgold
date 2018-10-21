@@ -1,46 +1,56 @@
-package main
+package show
 
 import (
 	"bufio"
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jaysinco/Pgold/utils"
+	"github.com/urfave/cli"
 )
 
-func main() {
-	host := flag.String("h", "127.0.0.1", "server host of postgreSQL")
-	user := flag.String("U", "root", "user name of postgreSQL")
-	dbname := flag.String("d", "root", "database name of postgreSQL")
-	passwd := flag.String("p", "unknown", "login password of postgreSQL")
-	flag.Parse()
+// ShowCmd run show subcommand
+var ShowCmd = cli.Command{
+	Name:   "show",
+	Usage:  "show market history data through http server",
+	Action: showRun,
+}
 
-	token := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
-		*host, *passwd, *user, *dbname)
-	db, err := sql.Open("postgres", token)
+func showRun(c *cli.Context) error {
+	log.Println("start market showing server")
+
+	config, err := utils.LoadConfigFile(c.GlobalString(utils.ConfigFlag.Name))
 	if err != nil {
-		log.Fatalf("[PGSVR] open postgres[%s]: %v\n", token, err)
+		log.Fatalf("load configure file: %v", err)
 	}
-	if err := db.Ping(); err != nil {
-		log.Fatalf("[PGSVR] connect to postgres[%s]: %v\n", token, err)
+
+	db, err := utils.SetupDatabase(&config.DB)
+	if err != nil {
+		log.Fatalf("setup database: %v", err)
 	}
 	defer db.Close()
 
+	baseDir := filepath.ToSlash(config.Show.Base)
+	if baseDir == "default" || baseDir == "" {
+		baseDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold/show/public"
+	}
+	log.Printf("base directory is '%s'", baseDir)
+
 	rnd := rand.New(rand.NewSource(time.Now().Unix()))
-	pmset, err := mkPoemList("./public/text/poem.txt")
+	pmset, err := mkPoemList(baseDir + "/text/poem.txt")
 	if err != nil {
-		log.Fatalf("[PGSVR] prepare poem set: %v\n", err)
+		log.Fatalf("prepare poem set: %v\n", err)
 	}
 
 	mux := http.NewServeMux()
@@ -51,7 +61,7 @@ func main() {
 		}
 		http.Redirect(w, r, "/public/html/home.html", http.StatusMovedPermanently)
 	}))
-	mux.Handle("/public/", http.StripPrefix("/public", http.FileServer(http.Dir("./public"))))
+	mux.Handle("/public/", http.StripPrefix("/public", http.FileServer(http.Dir(baseDir))))
 	mux.Handle("/papergold/price/tick/json/by/timestamp", &tickPrice{DB: db, Mode: typeJSON})
 	mux.Handle("/papergold/price/kline/json/all/day", &klinePrice{DB: db})
 	mux.Handle("/poem/random", &randomPoet{Rnd: rnd, Set: pmset})
@@ -60,8 +70,9 @@ func main() {
 		Addr:    ":80",
 		Handler: mux,
 	}
-	log.Printf("[PGSVR] listening on port%s\n", server.Addr)
-	log.Printf("[PGSVR] stop unexpectedly: %v\n", server.ListenAndServe())
+	log.Printf("listening on port%s\n", server.Addr)
+	log.Printf("stop unexpectedly: %v\n", server.ListenAndServe())
+	return nil
 }
 
 type klinePrice struct {

@@ -1,9 +1,8 @@
-package main
+package market
 
 import (
 	"bytes"
 	"database/sql"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,29 +12,33 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jaysinco/Pgold/utils"
+	"github.com/urfave/cli"
 )
 
-func main() {
-	host := flag.String("h", "127.0.0.1", "server host of postgreSQL")
-	user := flag.String("U", "root", "user name of postgreSQL")
-	dbname := flag.String("d", "root", "database name of postgreSQL")
-	passwd := flag.String("p", "unknown", "login password of postgreSQL")
-	flag.Parse()
+// MarketCmd run market subcommand
+var MarketCmd = cli.Command{
+	Name:   "market",
+	Usage:  "fetch market data into database continuously",
+	Action: marketRun,
+}
 
-	log.Println("[PGMKT] start")
-	token := fmt.Sprintf("host=%s password=%s user=%s dbname=%s sslmode=disable",
-		*host, *passwd, *user, *dbname)
-	db, err := sql.Open("postgres", token)
+func marketRun(c *cli.Context) error {
+	log.Println("start fetching market data")
+
+	config, err := utils.LoadConfigFile(c.GlobalString(utils.ConfigFlag.Name))
 	if err != nil {
-		log.Fatalf("[PGMKT] open postgres[%s]: %v", token, err)
+		log.Fatalf("load configure file: %v", err)
 	}
-	if err := db.Ping(); err != nil {
-		log.Fatalf("[PGMKT] connect to postgres[%s]: %v", token, err)
+
+	db, err := utils.SetupDatabase(&config.DB)
+	if err != nil {
+		log.Fatalf("setup database: %v", err)
 	}
 	defer db.Close()
+
 	if err := createMktTbl(db); err != nil {
-		log.Fatalf("[PGMKT] create market table 'pgmkt': %v", err)
+		log.Fatalf("create market table 'pgmkt': %v", err)
 	}
 
 	tick := 30 * time.Second
@@ -61,7 +64,7 @@ func main() {
 						ers = strings.Replace(ers, "\n", "", -1)
 						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
-					log.Printf("[PGMKT] error encountered then fixed => %s", report.String())
+					log.Printf("error encountered then fixed => %s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {
