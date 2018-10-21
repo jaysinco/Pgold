@@ -13,27 +13,16 @@ import (
 // HintCmd run hint subcommand
 var HintCmd = cli.Command{
 	Name:   "hint",
-	Usage:  "email trade tips continuously based on strategy",
-	Action: hintRun,
+	Usage:  "Email trade tips continuously based on strategy",
+	Action: utils.InitWrapper(hintRun),
 }
 
 func hintRun(c *cli.Context) error {
 	log.Println("start sending trade tips")
 
-	config, err := utils.LoadConfigFile(c.GlobalString(utils.ConfigFlag.Name))
-	if err != nil {
-		log.Fatalf("load configure file: %v", err)
-	}
-
-	db, err := utils.SetupDatabase(&config.DB)
-	if err != nil {
-		log.Fatalf("setup database: %v", err)
-	}
-	defer db.Close()
-
 	tick := 30 * time.Second
 	for {
-		if err := checkWarning(db, config); err != nil {
+		if err := checkWarning(utils.DB, utils.Config); err != nil {
 			log.Printf("check warning: %v", err)
 		}
 		time.Sleep(tick)

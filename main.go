@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/jaysinco/Pgold/control"
 	"github.com/jaysinco/Pgold/hint"
 	"github.com/jaysinco/Pgold/market"
 	"github.com/jaysinco/Pgold/show"
@@ -28,9 +29,17 @@ func main() {
 		market.ImportCmd,
 		show.ShowCmd,
 		hint.HintCmd,
+		control.BatchCmd,
 	}
-	err := app.Run(os.Args)
-	if err != nil {
+
+	app.After = func(c *cli.Context) error {
+		if utils.DB != nil {
+			return utils.DB.Close()
+		}
+		return nil
+	}
+
+	if err := app.Run(os.Args); err != nil {
 		log.Fatalf("run app: %v", err)
 	}
 }

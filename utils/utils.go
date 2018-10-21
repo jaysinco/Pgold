@@ -13,7 +13,13 @@ import (
 	"github.com/urfave/cli"
 )
 
-// General settings
+// shared variables
+var (
+	DB     *sql.DB
+	Config *TomlConfig
+)
+
+// general settings
 var (
 	ConfigFlag = cli.StringFlag{
 		Name:  "config",
@@ -31,6 +37,11 @@ var (
 	OnlyTxOpenFlag = cli.BoolFlag{
 		Name:  "tx-only",
 		Usage: "only when transaction open",
+	}
+	TaskListFlag = cli.StringFlag{
+		Name:  "task",
+		Value: "market, show, hint",
+		Usage: "run batch as per `LIST`",
 	}
 )
 
@@ -116,4 +127,20 @@ func SendMail(subject, body string, mi *MailInfo) error {
 		"\r\n%s\r\n", from, to, subject, body)
 	return smtp.SendMail(fmt.Sprintf("smtp.%s:25", domain), auth,
 		from, strings.Split(to, ";"), []byte(msg))
+}
+
+// InitWrapper do initialize stuff
+func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
+	return func(c *cli.Context) (err error) {
+		Config, err = LoadConfigFile(c.GlobalString(ConfigFlag.Name))
+		if err != nil {
+			return fmt.Errorf("load configure file: %v", err)
+		}
+
+		DB, err = SetupDatabase(&Config.DB)
+		if err != nil {
+			return fmt.Errorf("setup database: %v", err)
+		}
+		return cmdAction(c)
+	}
 }

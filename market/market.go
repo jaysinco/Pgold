@@ -19,26 +19,15 @@ import (
 // MarketCmd run market subcommand
 var MarketCmd = cli.Command{
 	Name:   "market",
-	Usage:  "fetch market data into database continuously",
-	Action: marketRun,
+	Usage:  "Fetch market data into database continuously",
+	Action: utils.InitWrapper(marketRun),
 }
 
 func marketRun(c *cli.Context) error {
 	log.Println("start fetching market data")
 
-	config, err := utils.LoadConfigFile(c.GlobalString(utils.ConfigFlag.Name))
-	if err != nil {
-		log.Fatalf("load configure file: %v", err)
-	}
-
-	db, err := utils.SetupDatabase(&config.DB)
-	if err != nil {
-		log.Fatalf("setup database: %v", err)
-	}
-	defer db.Close()
-
-	if err := createMktTbl(db); err != nil {
-		log.Fatalf("create market table 'pgmkt': %v", err)
+	if err := createMktTbl(utils.DB); err != nil {
+		return fmt.Errorf("create market table 'pgmkt': %v", err)
 	}
 
 	tick := 30 * time.Second
@@ -48,7 +37,7 @@ func marketRun(c *cli.Context) error {
 		ecount := make(map[string]int)
 		epochBegin := time.Now()
 		for {
-			if err := insertMktData(db); err != nil {
+			if err := insertMktData(utils.DB); err != nil {
 				if !retry {
 					retry = true
 				}

@@ -23,25 +23,14 @@ import (
 // ShowCmd run show subcommand
 var ShowCmd = cli.Command{
 	Name:   "show",
-	Usage:  "show market history data through http server",
-	Action: showRun,
+	Usage:  "Show market history data through http server",
+	Action: utils.InitWrapper(showRun),
 }
 
 func showRun(c *cli.Context) error {
 	log.Println("start market showing server")
 
-	config, err := utils.LoadConfigFile(c.GlobalString(utils.ConfigFlag.Name))
-	if err != nil {
-		log.Fatalf("load configure file: %v", err)
-	}
-
-	db, err := utils.SetupDatabase(&config.DB)
-	if err != nil {
-		log.Fatalf("setup database: %v", err)
-	}
-	defer db.Close()
-
-	baseDir := filepath.ToSlash(config.Show.Base)
+	baseDir := filepath.ToSlash(utils.Config.Show.Base)
 	if baseDir == "default" || baseDir == "" {
 		baseDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold/show/public"
 	}
@@ -50,7 +39,7 @@ func showRun(c *cli.Context) error {
 	rnd := rand.New(rand.NewSource(time.Now().Unix()))
 	pmset, err := mkPoemList(baseDir + "/text/poem.txt")
 	if err != nil {
-		log.Fatalf("prepare poem set: %v\n", err)
+		return fmt.Errorf("prepare poem set: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -62,8 +51,8 @@ func showRun(c *cli.Context) error {
 		http.Redirect(w, r, "/public/html/home.html", http.StatusMovedPermanently)
 	}))
 	mux.Handle("/public/", http.StripPrefix("/public", http.FileServer(http.Dir(baseDir))))
-	mux.Handle("/papergold/price/tick/json/by/timestamp", &tickPrice{DB: db, Mode: typeJSON})
-	mux.Handle("/papergold/price/kline/json/all/day", &klinePrice{DB: db})
+	mux.Handle("/papergold/price/tick/json/by/timestamp", &tickPrice{DB: utils.DB, Mode: typeJSON})
+	mux.Handle("/papergold/price/kline/json/all/day", &klinePrice{DB: utils.DB})
 	mux.Handle("/poem/random", &randomPoet{Rnd: rnd, Set: pmset})
 
 	server := &http.Server{
@@ -71,8 +60,7 @@ func showRun(c *cli.Context) error {
 		Handler: mux,
 	}
 	log.Printf("listening on port%s\n", server.Addr)
-	log.Printf("stop unexpectedly: %v\n", server.ListenAndServe())
-	return nil
+	return fmt.Errorf("stop unexpectedly: %v", server.ListenAndServe())
 }
 
 type klinePrice struct {
