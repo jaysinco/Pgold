@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/smtp"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,29 +18,30 @@ import (
 var (
 	DB     *sql.DB
 	Config *TomlConfig
+	PGPath = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
 )
 
 // general settings
 var (
 	ConfigFlag = cli.StringFlag{
-		Name:  "config",
-		Value: "./pgold.conf",
+		Name:  "config,c",
+		Value: PGPath + "/pgold.conf",
 		Usage: "load configuration from `FILE`",
 	}
 	InfileFlag = cli.StringFlag{
-		Name:  "in",
+		Name:  "in,i",
 		Usage: "read input from `FILE`",
 	}
 	OutfileFlag = cli.StringFlag{
-		Name:  "out",
+		Name:  "out,o",
 		Usage: "write output into `FILE`",
 	}
 	OnlyTxOpenFlag = cli.BoolFlag{
-		Name:  "tx-only",
+		Name:  "tx-only,x",
 		Usage: "only when transaction open",
 	}
 	TaskListFlag = cli.StringFlag{
-		Name:  "task",
+		Name:  "task,t",
 		Value: "market, show, hint",
 		Usage: "run batch as per `LIST`",
 	}
@@ -54,7 +56,8 @@ type TomlConfig struct {
 
 // ShowInfo collects show server information
 type ShowInfo struct {
-	Base string
+	Port    string
+	Basedir string
 }
 
 // DBInfo collects database connection information
@@ -104,6 +107,11 @@ func SetupDatabase(dbi *DBInfo) (*sql.DB, error) {
 	return db, nil
 }
 
+// GetFlagName used for flag alias name lookup
+func GetFlagName(flag cli.Flag) string {
+	return strings.Split(flag.GetName(), ",")[0]
+}
+
 // IsTxOpen decide whether input time is paper gold trading time
 func IsTxOpen(tm *time.Time) bool {
 	weekday := tm.Weekday()
@@ -132,7 +140,7 @@ func SendMail(subject, body string, mi *MailInfo) error {
 // InitWrapper do initialize stuff
 func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
 	return func(c *cli.Context) (err error) {
-		Config, err = LoadConfigFile(c.GlobalString(ConfigFlag.Name))
+		Config, err = LoadConfigFile(c.GlobalString(GetFlagName(ConfigFlag)))
 		if err != nil {
 			return fmt.Errorf("load configure file: %v", err)
 		}

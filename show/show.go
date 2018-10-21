@@ -30,9 +30,9 @@ var ShowCmd = cli.Command{
 func showRun(c *cli.Context) error {
 	log.Println("start market showing server")
 
-	baseDir := filepath.ToSlash(utils.Config.Show.Base)
+	baseDir := filepath.ToSlash(utils.Config.Show.Basedir)
 	if baseDir == "default" || baseDir == "" {
-		baseDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold/show/public"
+		baseDir = utils.PGPath + "/show/public"
 	}
 	log.Printf("base directory is '%s'", baseDir)
 
@@ -56,7 +56,7 @@ func showRun(c *cli.Context) error {
 	mux.Handle("/poem/random", &randomPoet{Rnd: rnd, Set: pmset})
 
 	server := &http.Server{
-		Addr:    ":80",
+		Addr:    ":" + utils.Config.Show.Port,
 		Handler: mux,
 	}
 	log.Printf("listening on port%s\n", server.Addr)

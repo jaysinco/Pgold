@@ -20,7 +20,7 @@ var BatchCmd = cli.Command{
 }
 
 func startRun(c *cli.Context) error {
-	batch := strings.Split(c.String(utils.TaskListFlag.Name), ",")
+	batch := strings.Split(c.String(utils.GetFlagName(utils.TaskListFlag)), ",")
 	wait := make(chan taskCompleted)
 	count := 0
 	for _, task := range batch {

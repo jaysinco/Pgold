@@ -24,13 +24,13 @@ var ExportCmd = cli.Command{
 }
 
 func exportRun(c *cli.Context) error {
-	filename := c.String(utils.OutfileFlag.Name)
+	filename := c.String(utils.GetFlagName(utils.OutfileFlag))
 	if filename == "" {
 		return fmt.Errorf("output file name must be given")
 	}
 	log.Printf("start exporting market data into '%s'", filename)
 
-	if err := exportMktData(filename, c.Bool(utils.OnlyTxOpenFlag.Name), utils.DB); err != nil {
+	if err := exportMktData(filename, c.Bool(utils.GetFlagName(utils.OnlyTxOpenFlag)), utils.DB); err != nil {
 		return fmt.Errorf("export market data: %v", err)
 	}
 	return nil
@@ -97,7 +97,7 @@ var ImportCmd = cli.Command{
 }
 
 func importRun(c *cli.Context) error {
-	filename := c.String(utils.InfileFlag.Name)
+	filename := c.String(utils.GetFlagName(utils.InfileFlag))
 	if filename == "" {
 		return fmt.Errorf("input file name must be given")
 	}
