@@ -29,6 +29,7 @@ func main() {
 		market.ImportCmd,
 		show.ShowCmd,
 		hint.HintCmd,
+		hint.TestCmd,
 		control.BatchCmd,
 	}
 
@@ -40,6 +41,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatalf("run app: %v", err)
+		log.Fatalf("run command: %v", err)
 	}
 }

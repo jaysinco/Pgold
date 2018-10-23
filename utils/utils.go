@@ -45,6 +45,16 @@ var (
 		Value: "market, show, hint",
 		Usage: "run batch as per `LIST`",
 	}
+	StartDateFlag = cli.StringFlag{
+		Name:  "start,s",
+		Value: "171019",
+		Usage: "start from date",
+	}
+	EndDateFlag = cli.StringFlag{
+		Name:  "end,e",
+		Value: time.Now().Format("060102"),
+		Usage: "end by date",
+	}
 )
 
 // TomlConfig stands for configure file
