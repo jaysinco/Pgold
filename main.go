@@ -41,6 +41,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatalf("run command: %v", err)
+		log.Fatalf("pgold: %v", err)
 	}
 }

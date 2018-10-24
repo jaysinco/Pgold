@@ -21,8 +21,8 @@ var TestCmd = cli.Command{
 }
 
 func testRun(c *cli.Context) error {
-	start, err := time.Parse("060102 MST", c.String(utils.GetFlagName(utils.StartDateFlag))+" CST")
-	end, err := time.Parse("060102 MST", c.String(utils.GetFlagName(utils.EndDateFlag))+" CST")
+	start, err := utils.ParseDate(c.String(utils.GetFlagName(utils.StartDateFlag)))
+	end, err := utils.ParseDate(c.String(utils.GetFlagName(utils.EndDateFlag)))
 	if err != nil {
 		return fmt.Errorf("wrong input date format: %v", err)
 	}

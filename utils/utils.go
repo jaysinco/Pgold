@@ -16,24 +16,26 @@ import (
 
 // shared variables
 var (
-	DB     *sql.DB
-	Config *TomlConfig
-	PGPath = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
+	DB        *sql.DB
+	Config    *TomlConfig
+	SourceDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
 )
 
 // general settings
 var (
 	ConfigFlag = cli.StringFlag{
 		Name:  "config,c",
-		Value: PGPath + "/pgold.conf",
+		Value: SourceDir + "/pgold.conf",
 		Usage: "load configuration from `FILE`",
 	}
 	InfileFlag = cli.StringFlag{
 		Name:  "in,i",
+		Value: "pgmkt_" + time.Now().Format("060102") + ".dat",
 		Usage: "read input from `FILE`",
 	}
 	OutfileFlag = cli.StringFlag{
 		Name:  "out,o",
+		Value: "pgmkt_" + time.Now().Format("060102") + ".dat",
 		Usage: "write output into `FILE`",
 	}
 	OnlyTxOpenFlag = cli.BoolFlag{
@@ -52,7 +54,7 @@ var (
 	}
 	EndDateFlag = cli.StringFlag{
 		Name:  "end,e",
-		Value: time.Now().Format("060102"),
+		Value: time.Now().Add(24 * time.Hour).Format("060102"),
 		Usage: "end by date",
 	}
 )
@@ -84,6 +86,19 @@ type MailInfo struct {
 	Accno string
 	Token string
 	Peers string
+}
+
+// Price contains paper gold price tick info
+type Price struct {
+	Timestamp int64   `json:"t"`
+	Bankbuy   float32 `json:"p"`
+	Banksell  float32 `json:"s,omitempty"`
+}
+
+func (p Price) String() string {
+	tm := time.Unix(p.Timestamp, 0)
+	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f | %.2f",
+		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy, p.Banksell)
 }
 
 // LoadConfigFile loads configure file
@@ -122,15 +137,6 @@ func GetFlagName(flag cli.Flag) string {
 	return strings.Split(flag.GetName(), ",")[0]
 }
 
-// IsTxOpen decide whether input time is paper gold trading time
-func IsTxOpen(tm *time.Time) bool {
-	weekday := tm.Weekday()
-	hour := tm.Hour()
-	return !((weekday == time.Saturday && hour >= 4) ||
-		(weekday == time.Sunday) ||
-		(weekday == time.Monday && hour < 7))
-}
-
 // SendMail send email based on configure file settings
 func SendMail(subject, body string, mi *MailInfo) error {
 	from := mi.Accno
@@ -161,4 +167,28 @@ func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
 		}
 		return cmdAction(c)
 	}
+}
+
+// Qargs represents list of args
+type Qargs []interface{}
+
+// QueryOne is a handy way to query just one row from database
+func QueryOne(query string, args, dest Qargs) error {
+	row, err := DB.Query(query, args...)
+	if err != nil {
+		return fmt.Errorf("query: %v", err)
+	}
+	defer row.Close()
+	if ok := row.Next(); !ok {
+		return fmt.Errorf("next row: empty data queue")
+	}
+	if err := row.Scan(dest...); err != nil {
+		return fmt.Errorf("scan row: %v", err)
+	}
+	return nil
+}
+
+// ParseDate parse YYMMDD based on CST time zone
+func ParseDate(yymmdd string) (time.Time, error) {
+	return time.Parse("060102 MST", yymmdd+" CST")
 }

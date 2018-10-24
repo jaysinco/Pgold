@@ -32,7 +32,7 @@ func showRun(c *cli.Context) error {
 
 	baseDir := filepath.ToSlash(utils.Config.Show.Basedir)
 	if baseDir == "default" || baseDir == "" {
-		baseDir = utils.PGPath + "/show/public"
+		baseDir = utils.SourceDir + "/show/public"
 	}
 	log.Printf("base directory is '%s'", baseDir)
 
@@ -153,17 +153,6 @@ const (
 	typeJSON respFile = iota
 	typeBinary
 )
-
-type pgprice struct {
-	Timestamp float64 `json:"t"`
-	Bankbuy   float32 `json:"p"`
-}
-
-func (p pgprice) String() string {
-	tm := time.Unix(int64(p.Timestamp), 0)
-	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f",
-		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy)
-}
 
 func queryTickData(db *sql.DB, start, end int64) ([]pgprice, error) {
 	rows, err := db.Query(`

@@ -24,10 +24,10 @@ var MarketCmd = cli.Command{
 }
 
 func marketRun(c *cli.Context) error {
-	log.Println("start fetching market data")
+	log.Println("run subcommand market")
 
 	if err := createMktTbl(utils.DB); err != nil {
-		return fmt.Errorf("create market table 'pgmkt': %v", err)
+		return fmt.Errorf("market: %v", err)
 	}
 
 	tick := 30 * time.Second
@@ -72,7 +72,7 @@ func insertMktData(db *sql.DB) error {
 		return fmt.Errorf("query paper gold: %v", err)
 	}
 	_, err = db.Exec("insert into pgmkt(txtime,bankbuy,banksell) values('now',$1,$2)", buy, sell)
-	return err
+	return fmt.Errorf("insert into table 'pgmkt': %v", err)
 }
 
 func createMktTbl(db *sql.DB) error {
@@ -81,7 +81,7 @@ func createMktTbl(db *sql.DB) error {
 		bankbuy   numeric(8,2),
 		banksell  numeric(8,2)
 	)`)
-	return err
+	return fmt.Errorf("create table 'pgmkt': %v", err)
 }
 
 var pricePatt = regexp.MustCompile(`人民币账户黄金(?s:.)*?(\d\d\d\.\d\d)(?s:.)*?(\d\d\d\.\d\d)`)
