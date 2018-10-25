@@ -10,13 +10,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-// HintCmd run hint subcommand
-var HintCmd = cli.Command{
-	Name:   "hint",
-	Usage:  "Email trade tips continuously based on strategy",
-	Action: utils.InitWrapper(hintRun),
-}
-
 func hintRun(c *cli.Context) error {
 	log.Println("start sending trade tips")
 

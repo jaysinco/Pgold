@@ -20,13 +20,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-// ShowCmd run show subcommand
-var ShowCmd = cli.Command{
-	Name:   "show",
-	Usage:  "Show market history data through http server",
-	Action: utils.InitWrapper(showRun),
-}
-
 func showRun(c *cli.Context) error {
 	log.Println("start market showing server")
 

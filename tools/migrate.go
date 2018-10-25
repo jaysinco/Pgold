@@ -1,79 +1,66 @@
-package utils
+package market
 
 import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 	"time"
+
+	"github.com/jaysinco/Pgold/utils"
+	"github.com/urfave/cli"
 )
 
-// DataIter protocol
-type DataIter interface {
-	Len() int
-	Range() (start time.Time, end time.Time)
-	Next() (data *Price, dry bool)
-	Close() error
-}
-
-// NewIterFromDatabase create database iterator
-func NewIterFromDatabase(start, end time.Time) (DataIter, error) {
-	length := 0
-	if err := QueryOne(`SELECT COUNT(*), MIN(txtime), MAX(txtime) FROM pgmkt WHERE txtime >= $1 and txtime <= $2)`,
-		Qargs{start, end}, Qargs{&length, &start, &end}); err != nil {
-		return nil, fmt.Errorf("query time range: %v", err)
-	}
-	rows, err := DB.Query(`SELECT txtime, bankbuy, banksell FROM pgmkt WHERE txtime >= $1 and txtime <= $2`, start, end)
+func exportRun(c *cli.Context) error {
+	log.Println("run subcommand export")
+	filename := c.String(utils.GetFlagName(utils.OutfileFlag))
+	onlyTxOpen := c.Bool(utils.GetFlagName(utils.OnlyTxOpenFlag))
+	start, err := utils.ParseDate(c.String(utils.GetFlagName(utils.StartDateFlag)))
+	end, err := utils.ParseDate(c.String(utils.GetFlagName(utils.EndDateFlag)))
 	if err != nil {
-		return nil, fmt.Errorf("select from table 'pgmkt': %v", err)
+		return fmt.Errorf("export: wrong input date format: %v", err)
 	}
-	return &dbSource{DB, rows, start, end, length}, nil
-}
-
-type dbSource struct {
-	DB     *sql.DB
-	Rows   *sql.Rows
-	Start  time.Time
-	End    time.Time
-	Length int
-}
-
-func (it *dbSource) Next() (data *Price, dry bool) {
-	data = new(Price)
-	if ok := it.Rows.Next(); !ok {
-		return nil, true
+	if err := exportMktData(filename, onlyTxOpen, start, end); err != nil {
+		return fmt.Errorf("export: %v", err)
 	}
-	var tm time.Time
-	if err := it.Rows.Scan(&tm, &data.Bankbuy, &data.Banksell); err != nil {
-		return nil, true
+	return nil
+}
+
+func exportMktData(filename string, onlyTxOpen bool, start, end time.Time) error {
+	pgcs, err := utils.GetPriceFromDB(start, end, onlyTxOpen, true)
+	if err != nil {
+		return fmt.Errorf("query market data: %v", err)
 	}
-	data.Timestamp = tm.Unix()
-	return data, false
+	if err := utils.WritePriceIntoBinFile(filename, pgcs); err != nil {
+		return fmt.Errorf("write market data: %v", err)
+	}
+	log.Printf("%d records written\n", len(pgcs))
+	return nil
 }
 
-func (it *dbSource) Len() int {
-	return it.Length
+func importRun(c *cli.Context) error {
+	log.Println("run subcommand import")
+	filename := c.String(utils.GetFlagName(utils.InfileFlag))
+	if err := importMktData(filename, utils.DB); err != nil {
+		return fmt.Errorf("import: %v", err)
+	}
+	return nil
 }
 
-func (it *dbSource) Range() (start time.Time, end time.Time) {
-	return it.Start, it.End
+func importMktData(filename string, db *sql.DB) error {
+	pgcs, err := utils.GetPriceFromBinFile(filename)
+	if err != nil {
+		return fmt.Errorf("read market data: %v", err)
+	}
+	log.Printf("%d records readed", len(pgcs))
+	success, err := utils.InsertPriceIntoDB(pgcs, true)
+	if err != nil {
+		return fmt.Errorf("insert market data: %v", err)
+	}
+	log.Printf("%d records inserted", success)
+	return nil
 }
-
-func (it *dbSource) Close() error {
-	return it.Rows.Close()
-}
-
-// IsTxOpen decide whether input time is paper gold trading time
-func IsTxOpen(tm time.Time) bool {
-	weekday := tm.Weekday()
-	hour := tm.Hour()
-	return !((weekday == time.Saturday && hour >= 4) ||
-		(weekday == time.Sunday) ||
-		(weekday == time.Monday && hour < 7))
-}
-
-// PriceList is set of price
-type PriceList []*Price
 
 // GetPriceFromDB collect price from database into list
 func GetPriceFromDB(start, end time.Time, onlyTxOpen, print bool) (PriceList, error) {

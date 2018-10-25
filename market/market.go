@@ -16,13 +16,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-// MarketCmd run market subcommand
-var MarketCmd = cli.Command{
-	Name:   "market",
-	Usage:  "Fetch market data into database continuously",
-	Action: utils.InitWrapper(marketRun),
-}
-
 func marketRun(c *cli.Context) error {
 	log.Println("run subcommand market")
 

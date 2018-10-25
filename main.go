@@ -4,10 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/jaysinco/Pgold/control"
-	"github.com/jaysinco/Pgold/hint"
-	"github.com/jaysinco/Pgold/market"
-	"github.com/jaysinco/Pgold/show"
 	"github.com/jaysinco/Pgold/utils"
 	_ "github.com/lib/pq"
 	"github.com/urfave/cli"
@@ -24,13 +20,57 @@ func main() {
 		utils.ConfigFlag,
 	}
 	app.Commands = []cli.Command{
-		market.MarketCmd,
-		market.ExportCmd,
-		market.ImportCmd,
-		show.ShowCmd,
-		hint.HintCmd,
-		hint.TestCmd,
-		control.BatchCmd,
+		cli.Command{
+			Name:   "market",
+			Usage:  "Fetch market data into database continuously",
+			Action: utils.InitWrapper(marketRun),
+		},
+		cli.Command{
+			Name:  "export",
+			Usage: "Export market data from database into file",
+			Flags: []cli.Flag{
+				utils.OutfileFlag,
+				utils.StartDateFlag,
+				utils.EndDateFlag,
+				utils.OnlyTxOpenFlag,
+			},
+			Action: utils.InitWrapper(exportRun),
+		},
+		cli.Command{
+			Name:  "import",
+			Usage: "Import market data from file into database",
+			Flags: []cli.Flag{
+				utils.InfileFlag,
+			},
+			Action: utils.InitWrapper(importRun),
+		},
+		cli.Command{
+			Name:   "show",
+			Usage:  "Show market history data through http server",
+			Action: utils.InitWrapper(showRun),
+		},
+		cli.Command{
+			Name:   "hint",
+			Usage:  "Email trade tips continuously based on strategy",
+			Action: utils.InitWrapper(hintRun),
+		},
+		cli.Command{
+			Name:  "test",
+			Usage: "Loopback test strategy using history data",
+			Flags: []cli.Flag{
+				utils.StartDateFlag,
+				utils.EndDateFlag,
+			},
+			Action: utils.InitWrapper(testRun),
+		},
+		cli.Command{
+			Name:  "batch",
+			Usage: "Run serveral tasks simultaneously",
+			Flags: []cli.Flag{
+				utils.TaskListFlag,
+			},
+			Action: utils.InitWrapper(startRun),
+		},
 	}
 
 	app.After = func(c *cli.Context) error {

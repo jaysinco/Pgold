@@ -9,17 +9,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-// TestCmd run test subcommand
-var TestCmd = cli.Command{
-	Name:  "test",
-	Usage: "Loopback test strategy using history data",
-	Flags: []cli.Flag{
-		utils.StartDateFlag,
-		utils.EndDateFlag,
-	},
-	Action: utils.InitWrapper(testRun),
-}
-
 func testRun(c *cli.Context) error {
 	start, err := utils.ParseDate(c.String(utils.GetFlagName(utils.StartDateFlag)))
 	end, err := utils.ParseDate(c.String(utils.GetFlagName(utils.EndDateFlag)))

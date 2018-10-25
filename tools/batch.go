@@ -9,16 +9,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-// BatchCmd run batch subcommand
-var BatchCmd = cli.Command{
-	Name:  "batch",
-	Usage: "Run serveral tasks simultaneously",
-	Flags: []cli.Flag{
-		utils.TaskListFlag,
-	},
-	Action: utils.InitWrapper(startRun),
-}
-
 func startRun(c *cli.Context) error {
 	batch := strings.Split(c.String(utils.GetFlagName(utils.TaskListFlag)), ",")
 	wait := make(chan taskCompleted)

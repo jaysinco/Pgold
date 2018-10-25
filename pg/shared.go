@@ -1,4 +1,4 @@
-package utils
+package pg
 
 import (
 	"database/sql"
@@ -14,14 +14,14 @@ import (
 	"github.com/urfave/cli"
 )
 
-// shared variables
+// global variables
 var (
 	DB        *sql.DB
 	Config    *TomlConfig
 	SourceDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
 )
 
-// general settings
+// flags
 var (
 	ConfigFlag = cli.StringFlag{
 		Name:  "config,c",
@@ -58,48 +58,6 @@ var (
 		Usage: "end by date",
 	}
 )
-
-// TomlConfig stands for configure file
-type TomlConfig struct {
-	DB   DBInfo `toml:"database"`
-	Show ShowInfo
-	Mail MailInfo
-}
-
-// ShowInfo collects show server information
-type ShowInfo struct {
-	Port    string
-	Basedir string
-}
-
-// DBInfo collects database connection information
-type DBInfo struct {
-	Server string
-	Port   string
-	DBname string
-	User   string
-	Token  string
-}
-
-// MailInfo collects email sending information
-type MailInfo struct {
-	Accno string
-	Token string
-	Peers string
-}
-
-// Price contains paper gold price tick info
-type Price struct {
-	Timestamp int64   `json:"t"`
-	Bankbuy   float32 `json:"p"`
-	Banksell  float32 `json:"s,omitempty"`
-}
-
-func (p Price) String() string {
-	tm := time.Unix(p.Timestamp, 0)
-	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f | %.2f",
-		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy, p.Banksell)
-}
 
 // LoadConfigFile loads configure file
 func LoadConfigFile(filename string) (*TomlConfig, error) {
@@ -169,12 +127,12 @@ func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
 	}
 }
 
-// Qargs represents list of args
-type Qargs []interface{}
+// ArgSet represents list of arguments
+type ArgSet []interface{}
 
-// QueryOne is a handy way to query just one row from database
-func QueryOne(query string, args, dest Qargs) error {
-	row, err := DB.Query(query, args...)
+// QueryOneRow is a handy way to query just one row from database
+func QueryOneRow(sql string, query, dest ArgSet) error {
+	row, err := DB.Query(sql, query...)
 	if err != nil {
 		return fmt.Errorf("query: %v", err)
 	}
@@ -191,4 +149,33 @@ func QueryOne(query string, args, dest Qargs) error {
 // ParseDate parse YYMMDD based on CST time zone
 func ParseDate(yymmdd string) (time.Time, error) {
 	return time.Parse("060102 MST", yymmdd+" CST")
+}
+
+// TomlConfig stands for configure file
+type TomlConfig struct {
+	DB   DBInfo `toml:"database"`
+	Show ShowInfo
+	Mail MailInfo
+}
+
+// ShowInfo collects show server information
+type ShowInfo struct {
+	Port    string
+	Basedir string
+}
+
+// DBInfo collects database connection information
+type DBInfo struct {
+	Server string
+	Port   string
+	DBname string
+	User   string
+	Token  string
+}
+
+// MailInfo collects email sending information
+type MailInfo struct {
+	Accno string
+	Token string
+	Peers string
 }
