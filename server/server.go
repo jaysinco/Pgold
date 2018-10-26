@@ -111,6 +111,12 @@ func queryKLineData(db *sql.DB) ([]pgkday, error) {
 	return pgks, nil
 }
 
+type price struct {
+	Timestamp int64   `json:"t"`
+	Bankbuy   float32 `json:"p"`
+	Banksell  float32 `json:"s,omitempty"`
+}
+
 type tickPrice struct {
 	DB   *sql.DB
 	Mode respFile

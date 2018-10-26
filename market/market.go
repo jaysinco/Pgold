@@ -2,7 +2,6 @@ package market
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,17 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jaysinco/Pgold/utils"
+	"github.com/jaysinco/Pgold/pg"
 	"github.com/urfave/cli"
 )
 
-func marketRun(c *cli.Context) error {
-	log.Println("run subcommand market")
-
-	if err := createMktTbl(utils.DB); err != nil {
+// Run market data update continuously
+func Run(c *cli.Context) error {
+	log.Println("[MARKET] run")
+	sqlWriter := pg.NewSQLWriter()
+	if err := pg.CreateMktTbl(); err != nil {
 		return fmt.Errorf("market: %v", err)
 	}
-
 	tick := 30 * time.Second
 	wait := 5 * time.Second
 	for {
@@ -30,7 +29,7 @@ func marketRun(c *cli.Context) error {
 		ecount := make(map[string]int)
 		epochBegin := time.Now()
 		for {
-			if err := insertMktData(utils.DB); err != nil {
+			if err := updateMarket(sqlWriter); err != nil {
 				if !retry {
 					retry = true
 				}
@@ -59,43 +58,34 @@ func marketRun(c *cli.Context) error {
 	}
 }
 
-func insertMktData(db *sql.DB) error {
-	buy, sell, err := queryPaperGold()
-	if err != nil {
-		return fmt.Errorf("query paper gold: %v", err)
+func updateMarket(w pg.Writer) error {
+	p, err := crawlPrice()
+	if err == nil {
+		return fmt.Errorf("crawl price: %v", err)
 	}
-	_, err = db.Exec("insert into pgmkt(txtime,bankbuy,banksell) values('now',$1,$2)", buy, sell)
-	return fmt.Errorf("insert into table 'pgmkt': %v", err)
+	return w.Write(p)
 }
 
-func createMktTbl(db *sql.DB) error {
-	_, err := db.Exec(`create table if not exists pgmkt(
-		txtime    timestamp(0) with time zone primary key,
-		bankbuy   numeric(8,2),
-		banksell  numeric(8,2)
-	)`)
-	return fmt.Errorf("create table 'pgmkt': %v", err)
-}
+var pgMatcher = regexp.MustCompile(`人民币账户黄金(?s:.)*?(\d\d\d\.\d\d)(?s:.)*?(\d\d\d\.\d\d)`)
 
-var pricePatt = regexp.MustCompile(`人民币账户黄金(?s:.)*?(\d\d\d\.\d\d)(?s:.)*?(\d\d\d\.\d\d)`)
-
-func queryPaperGold() (bankBuyPrice, bankSellPrice float64, err error) {
+func crawlPrice() (*pg.Price, error) {
 	resp, err := http.Get("http://www.icbc.com.cn/ICBCDynamicSite/Charts/GoldTendencyPicture.aspx")
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		err = fmt.Errorf("read body: %v", err)
-		return
+		return nil, fmt.Errorf("read body: %v", err)
 	}
-	prices := pricePatt.FindSubmatch(body)
+	prices := pgMatcher.FindSubmatch(body)
 	if len(prices) != 3 {
-		err = fmt.Errorf("price pattern match failed within body: %s", string(body))
-		return
+		return nil, fmt.Errorf("match price failed within body: %s", string(body))
 	}
-	bankBuyPrice, _ = strconv.ParseFloat(string(prices[1]), 64)
-	bankSellPrice, _ = strconv.ParseFloat(string(prices[2]), 64)
-	return
+	buy, _ := strconv.ParseFloat(string(prices[1]), 32)
+	sell, _ := strconv.ParseFloat(string(prices[2]), 32)
+	p := new(pg.Price)
+	p.Bankbuy, p.Banksell = float32(buy), float32(sell)
+	p.Timestamp = time.Now().Unix()
+	return p, nil
 }

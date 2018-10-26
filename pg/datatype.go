@@ -4,41 +4,12 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
-	"os"
+	"io"
 	"time"
 )
 
-// Price contains paper gold price tick info
-type Price struct {
-	Timestamp int64   `json:"t"`
-	Bankbuy   float32 `json:"p"`
-	Banksell  float32 `json:"s,omitempty"`
-}
-
-func (p Price) String() string {
-	tm := time.Unix(p.Timestamp, 0)
-	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f | %.2f",
-		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy, p.Banksell)
-}
-
-// Reader read price from source
-type Reader interface {
-	ReadOne(p *Price) (dry bool, err error)
-	Read(set []*Price) error
-	Len() int
-	TimeRange() (start, end time.Time)
-	Close() error
-}
-
-// Writer writer price into source
-type Writer interface {
-	WriteOne(p *Price) error
-	Write(set []*Price) (n int, err error)
-	Close() error
-}
-
-// NewDBReader create database reader
-func NewDBReader(start, end time.Time) (Reader, error) {
+// NewSQLReader create database reader
+func NewSQLReader(start, end time.Time) (Reader, error) {
 	length := 0
 	if err := QueryOneRow(`SELECT COUNT(*), MIN(txtime), MAX(txtime) FROM pgmkt WHERE txtime >= $1 and txtime <= $2)`,
 		ArgSet{start, end}, ArgSet{&length, &start, &end}); err != nil {
@@ -48,46 +19,10 @@ func NewDBReader(start, end time.Time) (Reader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("select from table 'pgmkt': %v", err)
 	}
-	return &dbReader{DB, rows, start, end, length}, nil
+	return &sqlReader{DB, rows, start, end, length}, nil
 }
 
-// NewDBWriter create database writer
-func NewDBWriter() Writer {
-	return &dbWriter{DB}
-}
-
-// NewBinFileReader create binary file reader
-func NewBinFileReader(filename string) (Reader, error) {
-	fh, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("open file: %v", err)
-	}
-	length := new(int)
-	if err := binary.Read(fh, binary.LittleEndian, length); err != nil {
-		return nil, fmt.Errorf("read length header: %v", err)
-	}
-	return &binFileReader{fh, filename, *length}, nil
-}
-
-// NewBinFileWriter create binary file writer
-func NewBinFileWriter(filename string) (Writer, error) {
-	fh, err := os.Create(filename)
-	if err != nil {
-		return nil, fmt.Errorf("create file: %v", err)
-	}
-	return &binFileWriter{fh, filename}, nil
-}
-
-// IsTradeOpen decide whether input time is paper gold trading time
-func IsTradeOpen(tm time.Time) bool {
-	weekday := tm.Weekday()
-	hour := tm.Hour()
-	return !((weekday == time.Saturday && hour >= 4) ||
-		(weekday == time.Sunday) ||
-		(weekday == time.Monday && hour < 7))
-}
-
-type dbReader struct {
+type sqlReader struct {
 	DB     *sql.DB
 	Rows   *sql.Rows
 	Start  time.Time
@@ -95,7 +30,7 @@ type dbReader struct {
 	Length int
 }
 
-func (r *dbReader) ReadOne(p *Price) (dry bool, err error) {
+func (r *sqlReader) Read(p *Price) (dry bool, err error) {
 	if ok := r.Rows.Next(); !ok {
 		return true, nil
 	}
@@ -107,14 +42,14 @@ func (r *dbReader) ReadOne(p *Price) (dry bool, err error) {
 	return false, nil
 }
 
-func (r *dbReader) Read(set []*Price) error {
+func (r *sqlReader) ReadAll(set []*Price) error {
 	count := 0
 	for {
 		if count >= len(set) {
 			return nil
 		}
 		p := new(Price)
-		if dry, err := r.ReadOne(p); err != nil {
+		if dry, err := r.Read(p); err != nil {
 			return fmt.Errorf("read next one: %v", err)
 		} else if dry {
 			return nil
@@ -125,87 +60,188 @@ func (r *dbReader) Read(set []*Price) error {
 	}
 }
 
-func (r *dbReader) Len() int {
+func (r *sqlReader) Len() int {
 	return r.Length
 }
 
-func (r *dbReader) TimeRange() (start time.Time, end time.Time) {
+func (r *sqlReader) TimeRange() (start time.Time, end time.Time) {
 	return r.Start, r.End
 }
 
-func (r *dbReader) Close() error {
+func (r *sqlReader) Close() error {
 	return r.Rows.Close()
 }
 
-type dbWriter struct {
+// NewSQLWriter create database writer
+func NewSQLWriter() Writer {
+	return &sqlWriter{DB}
+}
+
+type sqlWriter struct {
 	DB *sql.DB
 }
 
-func (w *dbWriter) WriteOne(p *Price) error {
+func (w *sqlWriter) Write(p *Price) error {
 	_, err := w.DB.Exec("insert into pgmkt(txtime,bankbuy,banksell) values($1,$2,$3)",
 		time.Unix(p.Timestamp, 0), p.Bankbuy, p.Banksell)
 	return err
 }
 
-func (w *dbWriter) Write(set []*Price) (n int, lstErr error) {
+func (w *sqlWriter) WriteAll(set []*Price) (n int, err error) {
+	tx, err := w.DB.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("tx begin: %v", err)
+	}
+	defer tx.Commit()
+	stmt, err := tx.Prepare("insert into pgmkt(txtime,bankbuy,banksell) values($1,$2,$3)")
+	if err != nil {
+		return 0, fmt.Errorf("tx prepare: %v", err)
+	}
+	defer stmt.Close()
 	for _, p := range set {
-		if lstErr = w.WriteOne(p); lstErr == nil {
+		if _, err = stmt.Exec(time.Unix(p.Timestamp, 0), p.Bankbuy, p.Banksell); err == nil {
 			n++
 		}
 	}
-	return
+	return n, nil
 }
 
-func (w *dbWriter) Close() error {
+func (w *sqlWriter) Close() error {
 	return nil
 }
 
-type binFileReader struct {
-	FileHandler *os.File
-	FileName    string
-	Length      int
+// NewBinaryReader create binary reader
+func NewBinaryReader(source io.Reader) (Reader, error) {
+	length := 0
+	if err := binary.Read(source, binary.LittleEndian, &length); err != nil {
+		return nil, fmt.Errorf("read length header: %v", err)
+	}
+	buf := make([]*Price, length)
+	if err := binary.Read(source, binary.LittleEndian, buf); err != nil {
+		return nil, fmt.Errorf("read price: %v", err)
+	}
+	var start, end int64
+	if length > 0 {
+		start, end = buf[0].Timestamp, buf[len(buf)-1].Timestamp
+		for _, p := range buf {
+			if p.Timestamp > end {
+				end = p.Timestamp
+			}
+			if p.Timestamp < start {
+				start = p.Timestamp
+			}
+		}
+	}
+	return &binaryReader{source, buf, time.Unix(start, 0), time.Unix(end, 0), length, -1}, nil
 }
 
-func (r *binFileReader) ReadOne(p *Price) (dry bool, err error) {
-	if err = binary.Read(r.FileHandler, binary.LittleEndian, p); err != nil {
+type binaryReader struct {
+	Source io.Reader
+	Buffer []*Price
+	Start  time.Time
+	End    time.Time
+	Length int
+	Pos    int
+}
+
+func (r *binaryReader) Read(p *Price) (dry bool, err error) {
+	r.Pos++
+	if r.Pos >= r.Length {
 		return true, nil
 	}
+	*p = *r.Buffer[r.Pos]
 	return false, nil
 }
 
-func (r *binFileReader) Read(set []*Price) error {
-	return binary.Read(r.FileHandler, binary.LittleEndian, set)
+func (r *binaryReader) ReadAll(set []*Price) error {
+	for i := 0; i < len(set); i++ {
+		r.Pos++
+		if r.Pos >= r.Length {
+			return nil
+		}
+		set[i] = r.Buffer[r.Pos]
+	}
+	return nil
 }
 
-func (r *binFileReader) Len() int {
+func (r *binaryReader) Len() int {
 	return r.Length
 }
-func (r *binFileReader) TimeRange() (start, end time.Time) {
+
+func (r *binaryReader) TimeRange() (start, end time.Time) {
 	return
 }
-func (r *binFileReader) Close() error {
-	return r.FileHandler.Close()
+
+func (r *binaryReader) Close() error {
+	return nil
 }
 
-type binFileWriter struct {
-	FileHandler *os.File
-	FileName    string
+// NewBinaryWriter create binary writer
+func NewBinaryWriter(dest io.Writer) (Writer, error) {
+	return &binaryWriter{dest, make([]*Price, 0)}, nil
 }
 
-func (w *binFileWriter) WriteOne(p *Price) error {
-
+type binaryWriter struct {
+	Dest   io.Writer
+	Buffer []*Price
 }
-func (w *binFileWriter) Write(set []*Price) (n int, err error) {
-	length := len(set)
-	if err := binary.Write(w.FileHandler, binary.LittleEndian, length); err != nil {
-		return 0, fmt.Errorf("write length header: %v", err)
+
+func (w *binaryWriter) Write(p *Price) error {
+	w.Buffer = append(w.Buffer, p)
+	return nil
+}
+
+func (w *binaryWriter) WriteAll(set []*Price) (n int, err error) {
+	w.Buffer = append(w.Buffer, set...)
+	return len(set), nil
+}
+
+func (w *binaryWriter) Close() error {
+	length := len(w.Buffer)
+	if err := binary.Write(w.Dest, binary.LittleEndian, length); err != nil {
+		return fmt.Errorf("write length header: %v", err)
 	}
-	if err := binary.Write(w.FileHandler, binary.LittleEndian, set); err != nil {
-		return 0, fmt.Errorf("write price: %v", err)
+	if err := binary.Write(w.Dest, binary.LittleEndian, w.Buffer); err != nil {
+		return fmt.Errorf("write price: %v", err)
 	}
-	return length, nil
+	return nil
 }
 
-func (w *binFileWriter) Close() error {
-	return w.FileHandler.Close()
+// CreateMktTbl create market table
+func CreateMktTbl() error {
+	_, err := DB.Exec(`create table if not exists pgmkt (
+		txtime    timestamp(0) with time zone primary key,
+		bankbuy   numeric(8,2),
+		banksell  numeric(8,2)
+	)`)
+	return fmt.Errorf("create table 'pgmkt': %v", err)
+}
+
+// Price contains paper gold price tick info
+type Price struct {
+	Timestamp int64
+	Bankbuy   float32
+	Banksell  float32
+}
+
+func (p Price) String() string {
+	tm := time.Unix(p.Timestamp, 0)
+	return fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d | %.2f | %.2f",
+		tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute(), tm.Second(), p.Bankbuy, p.Banksell)
+}
+
+// Reader read price from source
+type Reader interface {
+	Read(p *Price) (dry bool, err error)
+	ReadAll(set []*Price) error
+	Len() int
+	TimeRange() (start, end time.Time)
+	Close() error
+}
+
+// Writer writer price into source
+type Writer interface {
+	Write(p *Price) error
+	WriteAll(set []*Price) (n int, err error)
+	Close() error
 }

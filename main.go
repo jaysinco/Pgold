@@ -21,7 +21,7 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		cli.Command{
-			Name:   "market",
+			Name:   "market,mkt",
 			Usage:  "Fetch market data into database continuously",
 			Action: utils.InitWrapper(marketRun),
 		},
@@ -41,6 +41,7 @@ func main() {
 			Usage: "Import market data from file into database",
 			Flags: []cli.Flag{
 				utils.InfileFlag,
+				OnlyTxOpenFlag
 			},
 			Action: utils.InitWrapper(importRun),
 		},
@@ -64,7 +65,7 @@ func main() {
 			Action: utils.InitWrapper(testRun),
 		},
 		cli.Command{
-			Name:  "batch",
+			Name:  "multitask",
 			Usage: "Run serveral tasks simultaneously",
 			Flags: []cli.Flag{
 				utils.TaskListFlag,
@@ -81,6 +82,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatalf("pgold: %v", err)
+		log.Fatalf("[ERROR] pgold: %v", err)
 	}
 }

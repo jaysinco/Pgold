@@ -30,12 +30,12 @@ var (
 	}
 	InfileFlag = cli.StringFlag{
 		Name:  "in,i",
-		Value: "pgmkt_" + time.Now().Format("060102") + ".dat",
+		Value: "pg" + time.Now().Format("060102") + ".dat",
 		Usage: "read input from `FILE`",
 	}
 	OutfileFlag = cli.StringFlag{
 		Name:  "out,o",
-		Value: "pgmkt_" + time.Now().Format("060102") + ".dat",
+		Value: "pg" + time.Now().Format("060102") + ".dat",
 		Usage: "write output into `FILE`",
 	}
 	OnlyTxOpenFlag = cli.BoolFlag{
@@ -45,7 +45,7 @@ var (
 	TaskListFlag = cli.StringFlag{
 		Name:  "task,t",
 		Value: "market, show, hint",
-		Usage: "run batch as per `LIST`",
+		Usage: "run multi tasks concurrently as per `LIST`",
 	}
 	StartDateFlag = cli.StringFlag{
 		Name:  "start,s",
@@ -90,9 +90,9 @@ func SetupDatabase(dbi *DBInfo) (*sql.DB, error) {
 	return db, nil
 }
 
-// GetFlagName used for flag alias name lookup
-func GetFlagName(flag cli.Flag) string {
-	return strings.Split(flag.GetName(), ",")[0]
+// FpComma get first part in a comma seperated string
+func FpComma(s string) string {
+	return strings.Split(s, ",")[0]
 }
 
 // SendMail send email based on configure file settings
@@ -114,7 +114,7 @@ func SendMail(subject, body string, mi *MailInfo) error {
 // InitWrapper do initialize stuff
 func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
 	return func(c *cli.Context) (err error) {
-		Config, err = LoadConfigFile(c.GlobalString(GetFlagName(ConfigFlag)))
+		Config, err = LoadConfigFile(c.GlobalString(FpComma(ConfigFlag.Name)))
 		if err != nil {
 			return fmt.Errorf("load configure file: %v", err)
 		}
@@ -144,6 +144,15 @@ func QueryOneRow(sql string, query, dest ArgSet) error {
 		return fmt.Errorf("scan row: %v", err)
 	}
 	return nil
+}
+
+// IsTradeOpen decide whether input time is paper gold trading time
+func IsTradeOpen(tm time.Time) bool {
+	weekday := tm.Weekday()
+	hour := tm.Hour()
+	return !((weekday == time.Saturday && hour >= 4) ||
+		(weekday == time.Sunday) ||
+		(weekday == time.Monday && hour < 7))
 }
 
 // ParseDate parse YYMMDD based on CST time zone
