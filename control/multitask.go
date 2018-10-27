@@ -18,7 +18,7 @@ func MutltiTask(c *cli.Context) error {
 	for _, task := range tasks {
 		task = strings.TrimSpace(task)
 		for index, cmd := range c.App.Commands {
-			if pg.FpComma(cmd.Name) == task {
+			if cmd.Name == task {
 				count++
 				go func() {
 					wait <- taskCompleted{

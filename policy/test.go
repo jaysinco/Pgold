@@ -1,67 +1,84 @@
-package hint
+package policy
 
 import (
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/jaysinco/Pgold/pg"
 	"github.com/urfave/cli"
 )
 
-func testRun(c *cli.Context) error {
-	start, err := utils.ParseDate(c.String(utils.GetFlagName(utils.StartDateFlag)))
-	end, err := utils.ParseDate(c.String(utils.GetFlagName(utils.EndDateFlag)))
+// Test strategy based on history price data
+func Test(c *cli.Context) error {
+	start, err := pg.ParseDate(c.String(pg.FpComma(pg.StartDateFlag.Name)))
+	end, err := pg.ParseDate(c.String(pg.FpComma(pg.EndDateFlag.Name)))
 	if err != nil {
 		return fmt.Errorf("wrong input date format: %v", err)
 	}
-	source, err := newDBSource(start, end, utils.DB)
+	sqlReader, err := pg.NewSQLReader(start, end)
 	if err != nil {
-		return fmt.Errorf("create data iterator: %v", err)
+		return fmt.Errorf("test: new sql reader: %v", err)
 	}
-	defer source.Close()
+	defer sqlReader.Close()
+	start, end = sqlReader.TimeRange()
 
-	stra := newRandTester(13)
-	loopbackTest(stra, source)
-
-	return nil
-}
-
-func loopbackTest(stra strategy, source dataIter) {
-	log.Printf("strategy name: '%s'", stra.Name())
-
-	start, end := source.TimeRange()
-	log.Printf("test range: %s -> % s",
-		start.Format("2006-01-02 15:04:05"), end.Format("2006-01-02 15:04:05"))
-	total := source.Len()
-	log.Printf("test scale: %d ticks", total)
-	log.Println("************* START *************")
-
-	txb := txBook{start, end, make([]*txRecord, 0)}
-	for {
-		data, dry := source.Next()
-		if dry {
+	chosen := c.String(pg.FpComma(pg.PolicyFlag.Name))
+	var stra strategy
+	for _, p := range globalPolicySet {
+		if p.Name == chosen {
+			stra = p.CreateMethod(start, end)
 			break
 		}
-		ctx := &tradeContex{data, utils.DB}
-		sig, msg := stra.Dealwith(ctx)
-		switch sig {
-		case Pass:
-			continue
-		case Buy:
-			rec := &txRecord{'B', data.Txtime, data.Banksell, msg}
-			txb.Rec = append(txb.Rec, rec)
-			log.Println(rec)
-		case Sell:
-			rec := &txRecord{'S', data.Txtime, data.Bankbuy, msg}
-			txb.Rec = append(txb.Rec, rec)
-			log.Println(rec)
-		case Warn:
-			log.Println(msg)
-		}
 	}
-	log.Printf("********** END OF TEST **********")
-	log.Printf("** annual rate of return: %.3f%%", txb.AnnualReturn()*100)
-	log.Printf("** trading frequency : %.2f/day", txb.TradeFreq())
+	if stra == nil {
+		return fmt.Errorf("test: policy name not registered: '%s'", chosen)
+	}
+	log.Printf("[TEST] strategy name: `%s`", chosen)
+
+	return loopbackTest(stra, sqlReader)
+}
+
+func loopbackTest(s strategy, r pg.Reader) error {
+	length := r.Len()
+	start, end := r.TimeRange()
+	log.Printf("[TEST] time range: %s -> %s", start.Format(pg.StampFmt), end.Format(pg.StampFmt))
+	log.Printf("[TEST] total ticks: %d", length)
+	log.Printf("[TEST] ************* START *************")
+
+	txb := txBook{start, end, make([]*txRecord, 0)}
+	var p pg.Price
+	ctx := tradeContex{&p}
+	for i := 0; i < length; i++ {
+		if _, err := r.Read(&p); err != nil {
+			return fmt.Errorf("read price: %v", err)
+		}
+		if pg.IsTradeOpen(time.Unix(p.Timestamp, 0)) {
+			sig, msg := s.Dealwith(&ctx)
+			switch sig {
+			case Pass:
+				continue
+			case Buy:
+				rec := &txRecord{'B', time.Unix(p.Timestamp, 0), p.Banksell, msg}
+				txb.Rec = append(txb.Rec, rec)
+				log.Printf("[TEST] %s\n", rec)
+			case Sell:
+				rec := &txRecord{'S', time.Unix(p.Timestamp, 0), p.Bankbuy, msg}
+				txb.Rec = append(txb.Rec, rec)
+				log.Printf("[TEST] %s\n", rec)
+			case Warn:
+				log.Printf("[TEST] %s\n", msg)
+			}
+		}
+		if i%100 == 0 {
+			fmt.Printf("\r >> %.1f%%", float32(i+1)/float32(length)*100)
+		}
+		fmt.Printf("\r")
+	}
+	log.Printf("[TEST] ********** END OF TEST **********")
+	log.Printf("[TEST] ** annual rate of return: %.3f%%", txb.AnnualReturn()*100)
+	log.Printf("[TEST] ** trading frequency : %.2f/day", txb.TradeFreqPerDay())
+	return nil
 }
 
 type txRecord struct {
@@ -79,7 +96,7 @@ func (tr *txRecord) String() string {
 		ind = '+'
 	}
 	return fmt.Sprintf("[%c] %s $%c%.2f %s", tr.Action,
-		tr.Time.Format("2006-01-02 15:04:05"), ind, tr.Amount, tr.Remark)
+		tr.Time.Format(pg.StampFmt), ind, tr.Amount, tr.Remark)
 }
 
 type txBook struct {
@@ -89,9 +106,29 @@ type txBook struct {
 }
 
 func (tb *txBook) AnnualReturn() float32 {
-	return 0
+	var balance float32
+	var cost float32
+	sub := tb.End.Sub(tb.Start)
+	for i, r := range tb.Rec {
+		if i == len(tb.Rec)-1 && r.Action == 'B' {
+			break
+		}
+		switch r.Action {
+		case 'B':
+			balance -= r.Amount
+			cost += r.Amount
+		case 'S':
+			balance += r.Amount
+		default:
+			panic("should not reach here!")
+		}
+	}
+	if cost == 0 {
+		return 0
+	}
+	return balance / cost / float32(sub.Hours()/24) * 365
 }
 
-func (tb *txBook) TradeFreq() float32 {
-	return 0
+func (tb *txBook) TradeFreqPerDay() float64 {
+	return float64(len(tb.Rec)) / (tb.End.Sub(tb.Start).Hours() / 24)
 }

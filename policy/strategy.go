@@ -1,30 +1,39 @@
-package hint
+package policy
 
 import (
-	"database/sql"
+	"math"
 	"math/rand"
 	"time"
+
+	"github.com/jaysinco/Pgold/pg"
 )
 
-func newRandTester(seeds int64) *randomTester {
-	rnd := rand.New(rand.NewSource(seeds))
-	return &randomTester{rnd, Pass, 0}
+var globalPolicySet = []policy{
+	{"RandomTrader", newRandomTrader},
 }
 
-type randomTester struct {
+func newRandomTrader(start, end time.Time) strategy {
+	trader := new(randomTrader)
+	trader.Rnd = rand.New(rand.NewSource(pg.Config.Policy.Seed))
+	trader.LastSig = Pass
+	sub := end.Sub(start)
+	trader.MaxTran = int(math.Floor(pg.Config.Policy.TradeFreqPerDay * sub.Hours() / 24))
+	trader.Prob = float64(trader.MaxTran) / (sub.Minutes() * 2)
+	return trader
+}
+
+type randomTrader struct {
 	Rnd     *rand.Rand
 	LastSig signal
+	MaxTran int
+	Prob    float64
 	Count   int
 }
 
-func (s *randomTester) Name() string {
-	return "random tester"
-}
-
-func (s *randomTester) Dealwith(ctx *tradeContex) (sig signal, msg string) {
-	if s.Rnd.Float32() < 0.001 {
+func (s *randomTrader) Dealwith(ctx *tradeContex) (sig signal, msg string) {
+	if s.Rnd.Float64() < s.Prob {
 		s.Count++
-		if s.Count <= 8 {
+		if s.Count <= s.MaxTran {
 			switch s.LastSig {
 			case Pass:
 				sig = Buy
@@ -40,20 +49,18 @@ func (s *randomTester) Dealwith(ctx *tradeContex) (sig signal, msg string) {
 }
 
 type strategy interface {
-	Name() string
 	Dealwith(ctx *tradeContex) (sig signal, msg string)
 }
 
-type tradeContex struct {
-	*price
-	DB *sql.DB
+type policy struct {
+	Name         string
+	CreateMethod func(start, end time.Time) strategy
 }
 
-type price struct {
-	Txtime   time.Time
-	Bankbuy  float32
-	Banksell float32
+type tradeContex struct {
+	*pg.Price
 }
+
 type signal int
 
 // action type

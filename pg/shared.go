@@ -20,6 +20,7 @@ var (
 	DBSTR     string
 	Config    *TomlConfig
 	SourceDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
+	StampFmt  = "06/01/02 15:04:05"
 )
 
 // flags
@@ -58,6 +59,11 @@ var (
 		Value: time.Now().Add(24 * time.Hour).Format("060102"),
 		Usage: "end by `DATE`",
 	}
+	PolicyFlag = cli.StringFlag{
+		Name:  "policy,p",
+		Value: "RandomTrader",
+		Usage: "strategy `Name`",
+	}
 )
 
 // SetupConfig loads configure file
@@ -79,7 +85,7 @@ func SetupConfig(filename string) (*TomlConfig, error) {
 
 // SetupDatabase connect database and ping it
 func SetupDatabase(dbi *DBInfo) (*sql.DB, error) {
-	cmd := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
+	cmd := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable",
 		dbi.Server, dbi.Port, dbi.DBname, dbi.User, dbi.Token)
 	db, err := sql.Open("postgres", cmd)
 	if err != nil {
@@ -168,18 +174,19 @@ type TomlConfig struct {
 	DB     DBInfo `toml:"database"`
 	Server ServerInfo
 	Mail   MailInfo
+	Policy PolicyInfo
 }
 
 // ServerInfo collects show server information
 type ServerInfo struct {
-	Port    string
+	Port    int
 	Basedir string
 }
 
 // DBInfo collects database connection information
 type DBInfo struct {
 	Server string
-	Port   string
+	Port   int
 	DBname string
 	User   string
 	Token  string
@@ -190,4 +197,10 @@ type MailInfo struct {
 	Accno string
 	Token string
 	Peers string
+}
+
+// PolicyInfo collects policy parameters information
+type PolicyInfo struct {
+	Seed            int64
+	TradeFreqPerDay float64
 }

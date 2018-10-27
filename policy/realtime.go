@@ -1,4 +1,4 @@
-package hint
+package policy
 
 import (
 	"database/sql"

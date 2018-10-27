@@ -49,7 +49,7 @@ func Run(c *cli.Context) error {
 	mux.Handle("/poem/random", &randomPoet{Rnd: rnd, Set: pmset})
 
 	server := &http.Server{
-		Addr:    ":" + pg.Config.Server.Port,
+		Addr:    ":" + strconv.Itoa(pg.Config.Server.Port),
 		Handler: mux,
 	}
 	log.Printf("[SERVER] listening on port%s\n", server.Addr)

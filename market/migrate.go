@@ -83,8 +83,7 @@ func file2db(filename string, onlyTxOpen bool) error {
 func pipeTo(r pg.Reader, w pg.Writer, onlyTxOpen bool) error {
 	length := r.Len()
 	start, end := r.TimeRange()
-	tmfmt := "06/01/02 15:04:05"
-	log.Printf("[PIPETO] time range: %s -> %s", start.Format(tmfmt), end.Format(tmfmt))
+	log.Printf("[PIPETO] time range: %s -> %s", start.Format(pg.StampFmt), end.Format(pg.StampFmt))
 	log.Printf("[PIPETO] %d records read", length)
 	success := 0
 	for i := 0; i < length; i++ {
