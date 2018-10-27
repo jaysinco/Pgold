@@ -4,83 +4,96 @@ import (
 	"log"
 	"os"
 
-	"github.com/jaysinco/Pgold/utils"
+	"github.com/jaysinco/Pgold/control"
+	"github.com/jaysinco/Pgold/market"
+	"github.com/jaysinco/Pgold/pg"
+	"github.com/jaysinco/Pgold/server"
 	_ "github.com/lib/pq"
 	"github.com/urfave/cli"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
-
 	app := cli.NewApp()
 	app.Version = "0.1.0"
 	app.Name = "pgold"
-	app.Usage = "ICBC paper gold trader helping system"
+	app.Usage = "ICBC paper gold trader assist system"
 	app.Flags = []cli.Flag{
-		utils.ConfigFlag,
+		pg.ConfigFlag,
 	}
 	app.Commands = []cli.Command{
 		cli.Command{
-			Name:   "market,mkt",
-			Usage:  "Fetch market data into database continuously",
-			Action: utils.InitWrapper(marketRun),
+			Name:    "market",
+			Usage:   "Crawl market data into database continuously",
+			Aliases: []string{"m"},
+			Action:  pg.Setup(market.Run),
 		},
 		cli.Command{
-			Name:  "export",
-			Usage: "Export market data from database into file",
+			Name:    "export",
+			Usage:   "Export market data from database into file",
+			Aliases: []string{"e"},
 			Flags: []cli.Flag{
-				utils.OutfileFlag,
-				utils.StartDateFlag,
-				utils.EndDateFlag,
-				utils.OnlyTxOpenFlag,
+				pg.OutfileFlag,
+				pg.StartDateFlag,
+				pg.EndDateFlag,
+				pg.OnlyTxOpenFlag,
 			},
-			Action: utils.InitWrapper(exportRun),
+			Action: pg.Setup(market.Export),
 		},
 		cli.Command{
-			Name:  "import",
-			Usage: "Import market data from file into database",
+			Name:    "import",
+			Usage:   "Import market data from file into database",
+			Aliases: []string{"i"},
 			Flags: []cli.Flag{
-				utils.InfileFlag,
-				OnlyTxOpenFlag
+				pg.InfileFlag,
+				pg.OnlyTxOpenFlag,
 			},
-			Action: utils.InitWrapper(importRun),
+			Action: pg.Setup(market.Import),
 		},
 		cli.Command{
-			Name:   "show",
-			Usage:  "Show market history data through http server",
-			Action: utils.InitWrapper(showRun),
+			Name:    "server",
+			Usage:   "run http server showing market history data ",
+			Aliases: []string{"s"},
+			Action:  pg.Setup(server.Run),
 		},
+		// cli.Command{
+		// 	Name:   "hint",
+		// 	Usage:  "Email trade tips continuously based on strategy",
+		// 	Action: utils.InitWrapper(hintRun),
+		// },
+		// cli.Command{
+		// 	Name:  "test",
+		// 	Usage: "Loopback test strategy using history data",
+		// 	Flags: []cli.Flag{
+		// 		utils.StartDateFlag,
+		// 		utils.EndDateFlag,
+		// 	},
+		// 	Action: utils.InitWrapper(testRun),
+		// },
+		// cli.Command{
+		// 	Name:  "pick",
+		// 	Usage: "产看数据库前n行，最后n行",
+		// 	Flags: []cli.Flag{
+		// 		utils.StartDateFlag,
+		// 		utils.EndDateFlag,
+		// 	},
+		// 	Action: utils.InitWrapper(testRun),
+		// },
 		cli.Command{
-			Name:   "hint",
-			Usage:  "Email trade tips continuously based on strategy",
-			Action: utils.InitWrapper(hintRun),
-		},
-		cli.Command{
-			Name:  "test",
-			Usage: "Loopback test strategy using history data",
+			Name:    "multitask",
+			Usage:   "Run serveral tasks simultaneously",
+			Aliases: []string{"t"},
 			Flags: []cli.Flag{
-				utils.StartDateFlag,
-				utils.EndDateFlag,
+				pg.TaskSetFlag,
 			},
-			Action: utils.InitWrapper(testRun),
-		},
-		cli.Command{
-			Name:  "multitask",
-			Usage: "Run serveral tasks simultaneously",
-			Flags: []cli.Flag{
-				utils.TaskListFlag,
-			},
-			Action: utils.InitWrapper(startRun),
+			Action: pg.Setup(control.MutltiTask),
 		},
 	}
-
 	app.After = func(c *cli.Context) error {
-		if utils.DB != nil {
-			return utils.DB.Close()
+		if pg.DB != nil {
+			return pg.DB.Close()
 		}
 		return nil
 	}
-
 	if err := app.Run(os.Args); err != nil {
 		log.Fatalf("[ERROR] pgold: %v", err)
 	}

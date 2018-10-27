@@ -11,11 +11,11 @@ import (
 // NewSQLReader create database reader
 func NewSQLReader(start, end time.Time) (Reader, error) {
 	length := 0
-	if err := QueryOneRow(`SELECT COUNT(*), MIN(txtime), MAX(txtime) FROM pgmkt WHERE txtime >= $1 and txtime <= $2)`,
+	if err := QueryOneRow(`SELECT COUNT(*), MIN(txtime), MAX(txtime) FROM pgmkt WHERE txtime >= $1 and txtime <= $2`,
 		ArgSet{start, end}, ArgSet{&length, &start, &end}); err != nil {
 		return nil, fmt.Errorf("query time range: %v", err)
 	}
-	rows, err := DB.Query(`SELECT txtime, bankbuy, banksell FROM pgmkt WHERE txtime >= $1 and txtime <= $2`, start, end)
+	rows, err := DB.Query(`SELECT txtime, bankbuy, banksell FROM pgmkt WHERE txtime >= $1 and txtime <= $2 order by txtime`, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("select from table 'pgmkt': %v", err)
 	}
@@ -42,19 +42,19 @@ func (r *sqlReader) Read(p *Price) (dry bool, err error) {
 	return false, nil
 }
 
-func (r *sqlReader) ReadAll(set []*Price) error {
+func (r *sqlReader) ReadAll(set []Price) error {
 	count := 0
+	p := new(Price)
 	for {
 		if count >= len(set) {
 			return nil
 		}
-		p := new(Price)
 		if dry, err := r.Read(p); err != nil {
 			return fmt.Errorf("read next one: %v", err)
 		} else if dry {
 			return nil
 		} else {
-			set[count] = p
+			set[count] = *p
 			count++
 		}
 	}
@@ -73,8 +73,11 @@ func (r *sqlReader) Close() error {
 }
 
 // NewSQLWriter create database writer
-func NewSQLWriter() Writer {
-	return &sqlWriter{DB}
+func NewSQLWriter() (Writer, error) {
+	if err := CreatPgmktTbl(); err != nil {
+		return nil, err
+	}
+	return &sqlWriter{DB}, nil
 }
 
 type sqlWriter struct {
@@ -87,7 +90,7 @@ func (w *sqlWriter) Write(p *Price) error {
 	return err
 }
 
-func (w *sqlWriter) WriteAll(set []*Price) (n int, err error) {
+func (w *sqlWriter) WriteAll(set []Price) (n int, err error) {
 	tx, err := w.DB.Begin()
 	if err != nil {
 		return 0, fmt.Errorf("tx begin: %v", err)
@@ -112,11 +115,11 @@ func (w *sqlWriter) Close() error {
 
 // NewBinaryReader create binary reader
 func NewBinaryReader(source io.Reader) (Reader, error) {
-	length := 0
+	var length int32
 	if err := binary.Read(source, binary.LittleEndian, &length); err != nil {
 		return nil, fmt.Errorf("read length header: %v", err)
 	}
-	buf := make([]*Price, length)
+	buf := make([]Price, length)
 	if err := binary.Read(source, binary.LittleEndian, buf); err != nil {
 		return nil, fmt.Errorf("read price: %v", err)
 	}
@@ -137,11 +140,11 @@ func NewBinaryReader(source io.Reader) (Reader, error) {
 
 type binaryReader struct {
 	Source io.Reader
-	Buffer []*Price
+	Buffer []Price
 	Start  time.Time
 	End    time.Time
-	Length int
-	Pos    int
+	Length int32
+	Pos    int32
 }
 
 func (r *binaryReader) Read(p *Price) (dry bool, err error) {
@@ -149,11 +152,11 @@ func (r *binaryReader) Read(p *Price) (dry bool, err error) {
 	if r.Pos >= r.Length {
 		return true, nil
 	}
-	*p = *r.Buffer[r.Pos]
+	*p = r.Buffer[r.Pos]
 	return false, nil
 }
 
-func (r *binaryReader) ReadAll(set []*Price) error {
+func (r *binaryReader) ReadAll(set []Price) error {
 	for i := 0; i < len(set); i++ {
 		r.Pos++
 		if r.Pos >= r.Length {
@@ -165,11 +168,11 @@ func (r *binaryReader) ReadAll(set []*Price) error {
 }
 
 func (r *binaryReader) Len() int {
-	return r.Length
+	return int(r.Length)
 }
 
 func (r *binaryReader) TimeRange() (start, end time.Time) {
-	return
+	return r.Start, r.End
 }
 
 func (r *binaryReader) Close() error {
@@ -178,43 +181,45 @@ func (r *binaryReader) Close() error {
 
 // NewBinaryWriter create binary writer
 func NewBinaryWriter(dest io.Writer) (Writer, error) {
-	return &binaryWriter{dest, make([]*Price, 0)}, nil
+	return &binaryWriter{dest, make([]Price, 0)}, nil
 }
 
 type binaryWriter struct {
 	Dest   io.Writer
-	Buffer []*Price
+	Buffer []Price
 }
 
 func (w *binaryWriter) Write(p *Price) error {
-	w.Buffer = append(w.Buffer, p)
+	w.Buffer = append(w.Buffer, *p)
 	return nil
 }
 
-func (w *binaryWriter) WriteAll(set []*Price) (n int, err error) {
+func (w *binaryWriter) WriteAll(set []Price) (n int, err error) {
 	w.Buffer = append(w.Buffer, set...)
 	return len(set), nil
 }
 
 func (w *binaryWriter) Close() error {
 	length := len(w.Buffer)
-	if err := binary.Write(w.Dest, binary.LittleEndian, length); err != nil {
+	if err := binary.Write(w.Dest, binary.LittleEndian, int32(length)); err != nil {
 		return fmt.Errorf("write length header: %v", err)
 	}
-	if err := binary.Write(w.Dest, binary.LittleEndian, w.Buffer); err != nil {
-		return fmt.Errorf("write price: %v", err)
+	for _, p := range w.Buffer {
+		if err := binary.Write(w.Dest, binary.LittleEndian, p); err != nil {
+			return fmt.Errorf("write price '%s': %v", p, err)
+		}
 	}
 	return nil
 }
 
-// CreateMktTbl create market table
-func CreateMktTbl() error {
+// CreatPgmktTbl create price table
+func CreatPgmktTbl() error {
 	_, err := DB.Exec(`create table if not exists pgmkt (
 		txtime    timestamp(0) with time zone primary key,
 		bankbuy   numeric(8,2),
 		banksell  numeric(8,2)
 	)`)
-	return fmt.Errorf("create table 'pgmkt': %v", err)
+	return err
 }
 
 // Price contains paper gold price tick info
@@ -233,7 +238,7 @@ func (p Price) String() string {
 // Reader read price from source
 type Reader interface {
 	Read(p *Price) (dry bool, err error)
-	ReadAll(set []*Price) error
+	ReadAll(set []Price) error
 	Len() int
 	TimeRange() (start, end time.Time)
 	Close() error
@@ -242,6 +247,6 @@ type Reader interface {
 // Writer writer price into source
 type Writer interface {
 	Write(p *Price) error
-	WriteAll(set []*Price) (n int, err error)
+	WriteAll(set []Price) (n int, err error)
 	Close() error
 }

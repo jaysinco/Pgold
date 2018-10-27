@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/jaysinco/Pgold/utils"
 	"github.com/urfave/cli"
 )
 

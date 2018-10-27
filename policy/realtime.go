@@ -6,16 +6,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/jaysinco/Pgold/utils"
+	"github.com/jaysinco/Pgold/pg"
 	"github.com/urfave/cli"
 )
 
-func hintRun(c *cli.Context) error {
-	log.Println("start sending trade tips")
-
+// Realtime run strategy at real time
+func Realtime(c *cli.Context) error {
+	log.Println("[REALTIME] run")
 	tick := 30 * time.Second
 	for {
-		if err := checkWarning(utils.DB, utils.Config); err != nil {
+		if err := checkWarning(pg.DB, pg.Config); err != nil {
 			log.Printf("check warning: %v", err)
 		}
 		time.Sleep(tick)

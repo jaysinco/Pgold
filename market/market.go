@@ -18,9 +18,9 @@ import (
 // Run market data update continuously
 func Run(c *cli.Context) error {
 	log.Println("[MARKET] run")
-	sqlWriter := pg.NewSQLWriter()
-	if err := pg.CreateMktTbl(); err != nil {
-		return fmt.Errorf("market: %v", err)
+	sqlWriter, err := pg.NewSQLWriter()
+	if err != nil {
+		return fmt.Errorf("market: new sql writer: %v", err)
 	}
 	tick := 30 * time.Second
 	wait := 5 * time.Second
@@ -45,7 +45,7 @@ func Run(c *cli.Context) error {
 						ers = strings.Replace(ers, "\n", "", -1)
 						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
-					log.Printf("error encountered then fixed => %s", report.String())
+					log.Printf("[MARKET] problems met then fixed => %s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {
@@ -60,7 +60,7 @@ func Run(c *cli.Context) error {
 
 func updateMarket(w pg.Writer) error {
 	p, err := crawlPrice()
-	if err == nil {
+	if err != nil {
 		return fmt.Errorf("crawl price: %v", err)
 	}
 	return w.Write(p)

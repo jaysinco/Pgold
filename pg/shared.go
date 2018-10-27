@@ -17,6 +17,7 @@ import (
 // global variables
 var (
 	DB        *sql.DB
+	DBSTR     string
 	Config    *TomlConfig
 	SourceDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
 )
@@ -42,25 +43,25 @@ var (
 		Name:  "tx-only,x",
 		Usage: "only when transaction open",
 	}
-	TaskListFlag = cli.StringFlag{
+	TaskSetFlag = cli.StringFlag{
 		Name:  "task,t",
-		Value: "market, show, hint",
+		Value: "market, server, hint",
 		Usage: "run multi tasks concurrently as per `LIST`",
 	}
 	StartDateFlag = cli.StringFlag{
 		Name:  "start,s",
 		Value: "171019",
-		Usage: "start from date",
+		Usage: "start from `DATE`",
 	}
 	EndDateFlag = cli.StringFlag{
 		Name:  "end,e",
 		Value: time.Now().Add(24 * time.Hour).Format("060102"),
-		Usage: "end by date",
+		Usage: "end by `DATE`",
 	}
 )
 
-// LoadConfigFile loads configure file
-func LoadConfigFile(filename string) (*TomlConfig, error) {
+// SetupConfig loads configure file
+func SetupConfig(filename string) (*TomlConfig, error) {
 	cfile, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("open file '%s': %v", filename, err)
@@ -111,15 +112,17 @@ func SendMail(subject, body string, mi *MailInfo) error {
 		from, strings.Split(to, ";"), []byte(msg))
 }
 
-// InitWrapper do initialize stuff
-func InitWrapper(cmdAction cli.ActionFunc) cli.ActionFunc {
+// Setup loads configure file and setup database
+func Setup(cmdAction cli.ActionFunc) cli.ActionFunc {
 	return func(c *cli.Context) (err error) {
-		Config, err = LoadConfigFile(c.GlobalString(FpComma(ConfigFlag.Name)))
+		Config, err = SetupConfig(c.GlobalString(FpComma(ConfigFlag.Name)))
 		if err != nil {
 			return fmt.Errorf("load configure file: %v", err)
 		}
 
 		DB, err = SetupDatabase(&Config.DB)
+		DBSTR = fmt.Sprintf("postgres@%s:%s/%s",
+			Config.DB.Server, Config.DB.Port, Config.DB.DBname)
 		if err != nil {
 			return fmt.Errorf("setup database: %v", err)
 		}
@@ -162,13 +165,13 @@ func ParseDate(yymmdd string) (time.Time, error) {
 
 // TomlConfig stands for configure file
 type TomlConfig struct {
-	DB   DBInfo `toml:"database"`
-	Show ShowInfo
-	Mail MailInfo
+	DB     DBInfo `toml:"database"`
+	Server ServerInfo
+	Mail   MailInfo
 }
 
-// ShowInfo collects show server information
-type ShowInfo struct {
+// ServerInfo collects show server information
+type ServerInfo struct {
 	Port    string
 	Basedir string
 }
