@@ -49,14 +49,14 @@ func main() {
 		},
 		cli.Command{
 			Name:   "server",
-			Usage:  "run http server showing market history data ",
+			Usage:  "Run http server showing market history data ",
 			Action: pg.Setup(server.Run),
 		},
-		// cli.Command{
-		// 	Name:   "hint",
-		// 	Usage:  "Email trade tips continuously based on strategy",
-		// 	Action: utils.InitWrapper(hintRun),
-		// },
+		cli.Command{
+			Name:   "realtime",
+			Usage:  "Email trade tips continuously based on policy",
+			Action: pg.Setup(policy.Realtime),
+		},
 		cli.Command{
 			Name:  "test",
 			Usage: "Loopback test strategy using history data",
@@ -67,15 +67,6 @@ func main() {
 			},
 			Action: pg.Setup(policy.Test),
 		},
-		// cli.Command{
-		// 	Name:  "pick",
-		// 	Usage: "产看数据库前n行，最后n行",
-		// 	Flags: []cli.Flag{
-		// 		utils.StartDateFlag,
-		// 		utils.EndDateFlag,
-		// 	},
-		// 	Action: utils.InitWrapper(testRun),
-		// },
 		cli.Command{
 			Name:  "multitask",
 			Usage: "Run serveral tasks simultaneously",

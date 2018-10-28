@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -13,59 +12,38 @@ import (
 // Realtime run strategy at real time
 func Realtime(c *cli.Context) error {
 	log.Println("[REALTIME] run")
-	tick := 30 * time.Second
+
+	chosen := pg.Config.Policy.RealtimePolicy
+	var stra strategy
+	for _, p := range globalPolicySet {
+		if p.Name == chosen {
+			stra = p.CreateMethod(time.Now(), pg.Forever)
+			break
+		}
+	}
+	if stra == nil {
+		return fmt.Errorf("realtime: policy name not registered: '%s'", chosen)
+	}
+	log.Printf("[REALTIME] policy name : %s", chosen)
+	mbody := fmt.Sprintf("FROM policy `%s`", chosen)
+	tick := time.Duration(pg.Config.DB.TickSec) * time.Second
+	p := new(pg.Price)
+	ctx := &tradeContex{p}
+	tm := new(time.Time)
 	for {
-		if err := checkWarning(pg.DB, pg.Config); err != nil {
-			log.Printf("check warning: %v", err)
+		if err := pg.QueryOneRow(`
+			SELECT txtime, bankbuy, banksell
+		    FROM pgmkt WHERE txtime = (SELECT MAX(txtime) FROM pgmkt)`,
+			pg.ArgSet{}, pg.ArgSet{&tm, &p.Bankbuy, &p.Banksell}); err != nil {
+			return fmt.Errorf("realtime: get current price error: %v", err)
+		}
+		p.Timestamp = tm.Unix()
+		if sig, msg := stra.Dealwith(ctx); sig == Warn {
+			sub := fmt.Sprintf("Paper gold: %s.", msg)
+			if err := pg.SendMail(sub, mbody, &pg.Config.Mail); err != nil {
+				return fmt.Errorf("realtime: send email: %v", err)
+			}
 		}
 		time.Sleep(tick)
 	}
-}
-
-func checkWarning(db *sql.DB, config *utils.TomlConfig) error {
-	threshold := float32(0.75)
-	duration := 45 * time.Minute
-
-	start := time.Now().Add(-1 * duration).Unix()
-	row, err := db.Query(`
-		SELECT MAX(bankbuy) maxbuy, 
-			   MIN(bankbuy) minbuy, 
-			   (SELECT bankbuy FROM pgmkt WHERE extract(epoch from txtime) = MAX(txtmsp)) nowbuy
-		FROM (SELECT extract(epoch from txtime) txtmsp, bankbuy FROM pgmkt ORDER BY txtime) tmp
-		WHERE txtmsp >= $1`, start)
-	if err != nil {
-		return fmt.Errorf("query data from table 'pgmkt': %v", err)
-	}
-	defer row.Close()
-	if ok := row.Next(); !ok {
-		return fmt.Errorf("next row empty: haven't received any data from pgmkt since last %v", duration)
-	}
-	var maxVal, minVal, nowVal float32
-	if err := row.Scan(&maxVal, &minVal, &nowVal); err != nil {
-		return fmt.Errorf("scan rows: %v", err)
-	}
-
-	var sub, body string
-	if nowVal-minVal > threshold {
-		log.Printf("upper threshold reached(%.2f-%.2f>%.2f) during last %s",
-			nowVal, minVal, threshold, duration)
-		sub = fmt.Sprintf("Paper gold is up %.2f RMB/g during last %d minutes.",
-			nowVal-minVal, duration/time.Minute)
-		body = "(๑•̀ㅂ•́)و✧"
-	}
-	if maxVal-nowVal > threshold {
-		log.Printf("lower threshold reached(%.2f-%.2f>%.2f) during last %s",
-			maxVal, nowVal, threshold, duration)
-		sub = fmt.Sprintf("Paper gold is down %.2f RMB/g during last %d minutes.",
-			maxVal-nowVal, duration/time.Minute)
-		body = "థ౪థ.........."
-	}
-
-	if sub != "" || body != "" {
-		if err := utils.SendMail(sub, body, &config.Mail); err != nil {
-			return fmt.Errorf("send email: %v", err)
-		}
-		time.Sleep(duration)
-	}
-	return nil
 }

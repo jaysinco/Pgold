@@ -21,6 +21,7 @@ var (
 	Config    *TomlConfig
 	SourceDir = filepath.ToSlash(os.Getenv("GOPATH")) + "/src/github.com/jaysinco/Pgold"
 	StampFmt  = "06/01/02 15:04:05"
+	Forever   = time.Now().Add(24 * time.Hour * 365 * 100)
 )
 
 // flags
@@ -46,7 +47,7 @@ var (
 	}
 	TaskSetFlag = cli.StringFlag{
 		Name:  "task,t",
-		Value: "market, server, hint",
+		Value: "market, server, realtime",
 		Usage: "run multi tasks concurrently as per `LIST`",
 	}
 	StartDateFlag = cli.StringFlag{
@@ -127,7 +128,7 @@ func Setup(cmdAction cli.ActionFunc) cli.ActionFunc {
 		}
 
 		DB, err = SetupDatabase(&Config.DB)
-		DBSTR = fmt.Sprintf("postgres@%s:%s/%s",
+		DBSTR = fmt.Sprintf("postgres@%s:%d/%s",
 			Config.DB.Server, Config.DB.Port, Config.DB.DBname)
 		if err != nil {
 			return fmt.Errorf("setup database: %v", err)
@@ -185,11 +186,12 @@ type ServerInfo struct {
 
 // DBInfo collects database connection information
 type DBInfo struct {
-	Server string
-	Port   int
-	DBname string
-	User   string
-	Token  string
+	TickSec int
+	Server  string
+	Port    int
+	DBname  string
+	User    string
+	Token   string
 }
 
 // MailInfo collects email sending information
@@ -201,6 +203,9 @@ type MailInfo struct {
 
 // PolicyInfo collects policy parameters information
 type PolicyInfo struct {
-	Seed            int64
-	TradeFreqPerDay float64
+	RealtimePolicy      string
+	RandSeed            int64
+	RandTradeFreqPerDay float64
+	WaveThreshold       float32
+	WaveIntervalMin     int
 }

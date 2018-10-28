@@ -22,7 +22,7 @@ func Run(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("market: new sql writer: %v", err)
 	}
-	tick := 30 * time.Second
+	tick := time.Duration(pg.Config.DB.TickSec) * time.Second
 	wait := 5 * time.Second
 	for {
 		retry := false
@@ -45,7 +45,7 @@ func Run(c *cli.Context) error {
 						ers = strings.Replace(ers, "\n", "", -1)
 						report.WriteString(fmt.Sprintf("%s(%d times);", ers, t))
 					}
-					log.Printf("[MARKET] problems met then fixed => %s", report.String())
+					//log.Printf("[MARKET] problems met then fixed => %s", report.String())
 				}
 				stm := tick - time.Since(epochBegin)
 				if stm < wait {

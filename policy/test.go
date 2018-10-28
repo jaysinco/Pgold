@@ -14,7 +14,7 @@ func Test(c *cli.Context) error {
 	start, err := pg.ParseDate(c.String(pg.FpComma(pg.StartDateFlag.Name)))
 	end, err := pg.ParseDate(c.String(pg.FpComma(pg.EndDateFlag.Name)))
 	if err != nil {
-		return fmt.Errorf("wrong input date format: %v", err)
+		return fmt.Errorf("test: wrong input date format: %v", err)
 	}
 	sqlReader, err := pg.NewSQLReader(start, end)
 	if err != nil {
@@ -34,7 +34,7 @@ func Test(c *cli.Context) error {
 	if stra == nil {
 		return fmt.Errorf("test: policy name not registered: '%s'", chosen)
 	}
-	log.Printf("[TEST] strategy name: `%s`", chosen)
+	log.Printf("[TEST] policy name : %s", chosen)
 
 	return loopbackTest(stra, sqlReader)
 }
@@ -42,9 +42,9 @@ func Test(c *cli.Context) error {
 func loopbackTest(s strategy, r pg.Reader) error {
 	length := r.Len()
 	start, end := r.TimeRange()
-	log.Printf("[TEST] time range: %s -> %s", start.Format(pg.StampFmt), end.Format(pg.StampFmt))
-	log.Printf("[TEST] total ticks: %d", length)
-	log.Printf("[TEST] ************* START *************")
+	log.Printf("[TEST] time range  : %s -> %s", start.Format(pg.StampFmt), end.Format(pg.StampFmt))
+	log.Printf("[TEST] total ticks : %d", length)
+	log.Printf("[TEST] ************** START **************")
 
 	txb := txBook{start, end, make([]*txRecord, 0)}
 	var p pg.Price
@@ -67,7 +67,7 @@ func loopbackTest(s strategy, r pg.Reader) error {
 				txb.Rec = append(txb.Rec, rec)
 				log.Printf("[TEST] %s\n", rec)
 			case Warn:
-				log.Printf("[TEST] %s\n", msg)
+				log.Printf("[TEST] [W] %s %s\n", time.Unix(p.Timestamp, 0).Format(pg.StampFmt), msg)
 			}
 		}
 		if i%100 == 0 {
@@ -75,9 +75,9 @@ func loopbackTest(s strategy, r pg.Reader) error {
 		}
 		fmt.Printf("\r")
 	}
-	log.Printf("[TEST] ********** END OF TEST **********")
-	log.Printf("[TEST] ** annual rate of return: %.3f%%", txb.AnnualReturn()*100)
-	log.Printf("[TEST] ** trading frequency : %.2f/day", txb.TradeFreqPerDay())
+	log.Printf("[TEST] *********** END OF TEST ***********")
+	log.Printf("[TEST] ** annual rate of return : %.2f%%", txb.AnnualReturn()*100)
+	log.Printf("[TEST] ** trading frequency     : %.1f/day", txb.TradeFreqPerDay())
 	return nil
 }
 

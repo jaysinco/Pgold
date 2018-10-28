@@ -32,7 +32,7 @@ func Run(c *cli.Context) error {
 	rnd := rand.New(rand.NewSource(time.Now().Unix()))
 	pmset, err := getPoemSet(baseDir + "/text/poem.txt")
 	if err != nil {
-		return fmt.Errorf("prepare poem set: %v", err)
+		return fmt.Errorf("server: prepare poem set: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -53,7 +53,7 @@ func Run(c *cli.Context) error {
 		Handler: mux,
 	}
 	log.Printf("[SERVER] listening on port%s\n", server.Addr)
-	return fmt.Errorf("stop unexpectedly: %v", server.ListenAndServe())
+	return fmt.Errorf("server: stop unexpectedly: %v", server.ListenAndServe())
 }
 
 type klinePrice struct{}
