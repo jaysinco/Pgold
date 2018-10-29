@@ -10,8 +10,30 @@ import (
 )
 
 var globalPolicySet = []policy{
+	{"SystemKeeper", newSystemKeeper},
 	{"RandomTrader", newRandomTrader},
 	{"WaveCaptor", newWaveCaptor},
+}
+
+func newSystemKeeper(start, end time.Time) strategy {
+	keeper := new(systemKeeper)
+	keeper.BrokenMin = time.Duration(pg.Config.Policy.SysBrokenMin) * time.Minute
+	return keeper
+}
+
+type systemKeeper struct {
+	BrokenMin  time.Duration
+	LastWarnTm time.Time
+}
+
+func (k *systemKeeper) Dealwith(ctx *tradeContex) (sig signal, msg string) {
+	systm := time.Now()
+	latest := time.Unix(ctx.Timestamp, 0)
+	if systm.Sub(k.LastWarnTm) > k.BrokenMin && systm.Sub(latest) >= k.BrokenMin {
+		k.LastWarnTm = systm
+		return Warn, fmt.Sprintf("market data not updated since %s", latest.Format(pg.StampFmt))
+	}
+	return Pass, ""
 }
 
 func newWaveCaptor(start, end time.Time) strategy {

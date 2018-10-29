@@ -203,7 +203,8 @@ type MailInfo struct {
 
 // PolicyInfo collects policy parameters information
 type PolicyInfo struct {
-	RealtimePolicy      string
+	DeploySet           string
+	SysBrokenMin        int
 	RandSeed            int64
 	RandTradeFreqPerDay float64
 	WaveThreshold       float32

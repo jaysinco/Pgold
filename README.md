@@ -1,12 +1,26 @@
-## Document
+## Usage
+```bash
+NAME:
+   pgold - ICBC paper gold trader assist system
 
-pg
- - market: 写入行情数据
- - export: 数据导出
- - import: 数据导入
- - show: 展示数据
- - hint: 策略提示
- - batch: 启动服务列表
+USAGE:
+   pgold.exe [global options] command [command options] [arguments...]
 
- - test: 回测策略
- 
+VERSION:
+   1.0.0
+
+COMMANDS:
+     market     Crawl market data into database continuously
+     export     Export market data from database into file
+     import     Import market data from file into database
+     server     Run http server showing market history data
+     realtime   Email trade tips continuously based on policy
+     test       Loopback test strategy using history data
+     multitask  Run serveral tasks simultaneously
+     help, h    Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --config FILE, -c FILE  load configuration from FILE
+   --help, -h              show help
+   --version, -v           print the version
+```

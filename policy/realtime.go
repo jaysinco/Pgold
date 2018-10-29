@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jaysinco/Pgold/pg"
@@ -13,19 +14,24 @@ import (
 func Realtime(c *cli.Context) error {
 	log.Println("[REALTIME] run")
 
-	chosen := pg.Config.Policy.RealtimePolicy
-	var stra strategy
-	for _, p := range globalPolicySet {
-		if p.Name == chosen {
-			stra = p.CreateMethod(time.Now(), pg.Forever)
-			break
+	deploySet := strings.Split(pg.Config.Policy.DeploySet, ";")
+	deployDesc := make([]string, 0)
+	var plc []strategy
+	for _, pld := range deploySet {
+		pln := strings.TrimSpace(pld)
+		for _, plb := range globalPolicySet {
+			if plb.Name == pln {
+				deployDesc = append(deployDesc, pln)
+				plc = append(plc, plb.CreateMethod(time.Now(), pg.Forever))
+				break
+			}
 		}
 	}
-	if stra == nil {
-		return fmt.Errorf("realtime: policy name not registered: '%s'", chosen)
+	if len(plc) == 0 {
+		return fmt.Errorf("realtime: none of policy is registered: '%s'", pg.Config.Policy.DeploySet)
 	}
-	log.Printf("[REALTIME] policy name : %s", chosen)
-	mbody := fmt.Sprintf("FROM policy `%s`", chosen)
+	log.Printf("[REALTIME] deploy policy: %s", strings.Join(deployDesc, " | "))
+
 	tick := time.Duration(pg.Config.DB.TickSec) * time.Second
 	p := new(pg.Price)
 	ctx := &tradeContex{p}
@@ -38,10 +44,13 @@ func Realtime(c *cli.Context) error {
 			return fmt.Errorf("realtime: get current price error: %v", err)
 		}
 		p.Timestamp = tm.Unix()
-		if sig, msg := stra.Dealwith(ctx); sig == Warn {
-			sub := fmt.Sprintf("Paper gold: %s.", msg)
-			if err := pg.SendMail(sub, mbody, &pg.Config.Mail); err != nil {
-				return fmt.Errorf("realtime: send email: %v", err)
+		for i, s := range plc {
+			if sig, msg := s.Dealwith(ctx); sig == Warn {
+				sub := fmt.Sprintf("Paper gold %s.", msg)
+				mbody := fmt.Sprintf("FROM policy `%s`", deployDesc[i])
+				if err := pg.SendMail(sub, mbody, &pg.Config.Mail); err != nil {
+					return fmt.Errorf("realtime: send email: %v", err)
+				}
 			}
 		}
 		time.Sleep(tick)
