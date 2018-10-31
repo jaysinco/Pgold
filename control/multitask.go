@@ -2,7 +2,6 @@ package control
 
 import (
 	"log"
-	"strings"
 	"time"
 
 	"github.com/jaysinco/Pgold/pg"
@@ -12,13 +11,12 @@ import (
 // MutltiTask run multi tasks concurrently
 func MutltiTask(c *cli.Context) error {
 	log.Println("[MULTITASK] run")
-	tasks := strings.Split(c.String(pg.FpComma(pg.TaskSetFlag.Name)), ",")
+	tasks := pg.SplitNoSpace(c.String(pg.FpComma(pg.TaskSetFlag.Name)), ",")
 	wait := make(chan taskCompleted)
 	count := 0
 	for _, task := range tasks {
-		task = strings.TrimSpace(task)
 		for index, cmd := range c.App.Commands {
-			if cmd.Name == task {
+			if cmd.Name == task && len(cmd.Flags) == 0 {
 				count++
 				go func() {
 					wait <- taskCompleted{
@@ -30,7 +28,7 @@ func MutltiTask(c *cli.Context) error {
 				break
 			}
 			if index+1 == len(c.App.Commands) {
-				log.Printf("[MULTITASK] skip non-exist task `%s`", task)
+				log.Printf("[MULTITASK] skip non-exist/has-flag task `%s`", task)
 			}
 		}
 	}

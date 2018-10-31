@@ -68,6 +68,8 @@ func loopbackTest(s strategy, r pg.Reader) error {
 				log.Printf("[TEST] %s\n", rec)
 			case Warn:
 				log.Printf("[TEST] [W] %s %s\n", time.Unix(p.Timestamp, 0).Format(pg.StampFmt), msg)
+			case Err:
+				log.Printf("[TEST] [ERROR] %s %s\n", time.Unix(p.Timestamp, 0).Format(pg.StampFmt), msg)
 			}
 		}
 		if i%100 == 0 {

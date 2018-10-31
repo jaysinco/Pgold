@@ -76,12 +76,6 @@ func main() {
 			Action: pg.Setup(control.MutltiTask),
 		},
 	}
-	app.After = func(c *cli.Context) error {
-		if pg.DB != nil {
-			return pg.DB.Close()
-		}
-		return nil
-	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatalf("[ERROR] pgold: %v", err)
 	}

@@ -103,6 +103,15 @@ func FpComma(s string) string {
 	return strings.Split(s, ",")[0]
 }
 
+// SplitNoSpace split string then trim space
+func SplitNoSpace(s string, sep string) []string {
+	set := strings.Split(s, sep)
+	for i := 0; i < len(set); i++ {
+		set[i] = strings.TrimSpace(set[i])
+	}
+	return set
+}
+
 // SendMail send email based on configure file settings
 func SendMail(subject, body string, mi *MailInfo) error {
 	from := mi.Accno
@@ -119,20 +128,20 @@ func SendMail(subject, body string, mi *MailInfo) error {
 		from, strings.Split(to, ";"), []byte(msg))
 }
 
-// Setup loads configure file and setup database
+// Setup loads configure file and setup&close database
 func Setup(cmdAction cli.ActionFunc) cli.ActionFunc {
 	return func(c *cli.Context) (err error) {
 		Config, err = SetupConfig(c.GlobalString(FpComma(ConfigFlag.Name)))
 		if err != nil {
 			return fmt.Errorf("load configure file: %v", err)
 		}
-
 		DB, err = SetupDatabase(&Config.DB)
-		DBSTR = fmt.Sprintf("postgres@%s:%d/%s",
-			Config.DB.Server, Config.DB.Port, Config.DB.DBname)
 		if err != nil {
 			return fmt.Errorf("setup database: %v", err)
 		}
+		defer DB.Close()
+		DBSTR = fmt.Sprintf("postgres@%s:%d/%s",
+			Config.DB.Server, Config.DB.Port, Config.DB.DBname)
 		return cmdAction(c)
 	}
 }

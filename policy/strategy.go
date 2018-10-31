@@ -64,7 +64,7 @@ func (w *waveCaptor) Dealwith(ctx *tradeContex) (sig signal, msg string) {
 			   MIN(a.bankbuy) minbuy
 		FROM pgmkt a WHERE a.txtime >= $1 and a.txtime <= $2`,
 		pg.ArgSet{bef, now}, pg.ArgSet{&maxbuytm, &maxbuy, &minbuytm, &minbuy}); err != nil {
-		return Warn, fmt.Sprintf("[ERROR] get max/min buy error: %v", err)
+		return Err, fmt.Sprintf("get max/min buy error: %v", err)
 	}
 	if ctx.Bankbuy-minbuy > w.Threshold {
 		w.LastWarnTm = now
@@ -136,4 +136,5 @@ const (
 	Buy
 	Sell
 	Warn
+	Err
 )
