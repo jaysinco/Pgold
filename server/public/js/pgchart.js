@@ -4,19 +4,19 @@ $(function () {
             rangeSelectorZoom: ''
         },
         global: {
-            useUTC: false 
+            useUTC: false
         },
         chart: {
             style: {
-              fontFamily: 'Arial'
+                fontFamily: 'Arial'
             }
-          }
+        }
     });
     var nday = new Date();
     var year = nday.getFullYear();
-    var month = nday.getMonth()+1;
+    var month = nday.getMonth() + 1;
     var day = nday.getDate();
-    var today = year+'-'+(month>9?month:'0'+month)+"-"+(day>9?day:'0'+day);
+    var today = year + '-' + (month > 9 ? month : '0' + month) + "-" + (day > 9 ? day : '0' + day);
     document.getElementById('tick_date').value = today;
     drawPaperGoldTick();
     state = "kline";
@@ -39,13 +39,23 @@ function toggle() {
 function drawPaperGoldTick() {
     var nday = new Date()
     var date = document.getElementById('tick_date').value.replace(/-/g, '/')
-    var start =  Math.floor(Date.parse(date+' 00:00:00')/1000);
-    var end = Math.floor(Date.parse(date+' 23:59:59')/1000);
-    $.getJSON('/papergold/price/tick/json/by/timestamp?start='+start+'&end='+end, function (data) {
+    var start = Math.floor(Date.parse(date + ' 00:00:00') / 1000);
+    var end = Math.floor(Date.parse(date + ' 23:59:59') / 1000);
+    $.getJSON('/papergold/price/tick/json/by/timestamp?start=' + start + '&end=' + end, function (data) {
+        if (data.length == 0) {
+            document.getElementById('pg_price').innerHTML = "NO DATA FOUND ON " + date
+            document.getElementById('tick_date').style.display = '';
+            drawRandPoem();
+            return
+        }
         var pgcs = [];
         var ymax = -1.0;
         var ymin = 9999.0;
+        var scale = Math.ceil(data.length / (24 * 60 * 2) * 15)
         for (var i = 0; i < data.length; i += 1) {
+            if (i % scale != 0 && (i != data.length - 1)) {
+                continue
+            }
             if (data[i].p > ymax) {
                 ymax = data[i].p;
             };
@@ -53,16 +63,16 @@ function drawPaperGoldTick() {
                 ymin = data[i].p;
             };
             pgcs.push([
-                data[i].t*1000,
+                data[i].t * 1000,
                 data[i].p
             ]);
         }
         var ylimax = 0.0;
         var ylimin = 0.0;
-        var W = 3.0;
-        var R = 4.0 / 5.0;
+        var W = 4;
+        var R = 2.8 / 5.0;
         if (ymax - ymin < W) {
-            ylimax = (W - (ymax - ymin)) * R + ymax; 
+            ylimax = (W - (ymax - ymin)) * R + ymax;
             ylimin = ymin - (W - (ymax - ymin)) * (1 - R);
         } else {
             ylimax = 0.5 + ymax;
@@ -73,18 +83,19 @@ function drawPaperGoldTick() {
                 zoomType: 'x',
                 height: 400
             },
-            credits:{
+            credits: {
                 enabled: false
             },
             title: {
                 text: 'ICBC Paper Gold Price',
-                style:{
+                style: {
                     fontSize: "20px",
                     //fontWeight: "bold",
-                    fontFamily:"Arial",
+                    fontFamily: "Arial",
                 }
             },
             xAxis: {
+                gridLineWidth: 1,
                 type: 'datetime',
                 dateTimeLabelFormats: {
                     millisecond: '%H:%M:%S.%L',
@@ -97,9 +108,11 @@ function drawPaperGoldTick() {
                     year: '%Y'
                 },
                 crosshair: true,
-                minPadding: 0.01,
-                maxPadding: 0.01,
-                minRange: 3600000 * 24,
+                minPadding: 0,
+                maxPadding: 0,
+                min: (start - 1000) * 1000,
+                //tickPixelInterval: 50,
+                minRange: (end - start + 1000) * 1000,
             },
             tooltip: {
                 dateTimeLabelFormats: {
@@ -111,7 +124,10 @@ function drawPaperGoldTick() {
                     week: '%m-%d',
                     month: '%Y-%m',
                     year: '%Y'
-                }
+                },
+                style: {
+                    fontSize: "11px",
+                },
             },
             yAxis: {
                 lineWidth: 2,
@@ -123,8 +139,8 @@ function drawPaperGoldTick() {
                 crosshair: true,
                 title: {
                     text: 'CNY',
-                    style:{
-                        fontFamily:"Arial",
+                    style: {
+                        fontFamily: "Arial",
                     }
                 },
                 max: ylimax,
@@ -135,12 +151,12 @@ function drawPaperGoldTick() {
             },
             series: [{
                 type: 'spline',
-                name: 'Bankbuy',
+                name: '银行买入价',
                 data: pgcs,
-                threshold : null,
+                threshold: null,
                 lineWidth: 2,
                 marker: {
-                    radius: 2,
+                    radius: 1.5,
                 },
                 states: {
                     hover: {
@@ -159,7 +175,7 @@ function drawPaperGoldKLine() {
         var pgklines = [];
         for (var i = 0; i < data.length; i += 1) {
             pgklines.push([
-                data[i].t*1000,
+                data[i].t * 1000,
                 data[i].o,
                 data[i].h,
                 data[i].l,
@@ -167,7 +183,7 @@ function drawPaperGoldKLine() {
             ]);
         }
         $('#pg_price').highcharts('StockChart', {
-            credits:{
+            credits: {
                 enabled: false
             },
             chart: {
@@ -205,13 +221,30 @@ function drawPaperGoldKLine() {
             },
             title: {
                 text: 'ICBC Paper Gold Price',
-                style:{
+                style: {
                     fontSize: "20px",
                     //fontWeight: "bold",
-                    fontFamily:"Arial",
+                    fontFamily: "Arial",
                 }
             },
+            tooltip: {
+                pointFormatter: function () {
+                    for (var i = 0; i < pgklines.length; i++) {
+                        if (pgklines[i][0] == this.x) {
+                            return "<span style=\"color:#FF6347\">●</span> 银行买入价<br/>" +
+                                "最高: <b>" + pgklines[i][2].toFixed(2) + "</b><br/>开盘: <b>" + pgklines[i][1].toFixed(2) + "</b><br/>" +
+                                "收盘: <b>" + pgklines[i][4].toFixed(2) + "</b><br/>最低: <b>" + pgklines[i][3].toFixed(2) + "</b><br/>" +
+                                "涨幅: <b>" + ((pgklines[i][4] - pgklines[i][1]) / pgklines[i][1] * 100).toFixed(2) + "%</b>"
+
+                        }
+                    }
+                },
+                style: {
+                    fontSize: "11px",
+                },
+            },
             xAxis: {
+                gridLineWidth: 1,
                 dateTimeLabelFormats: {
                     millisecond: '%H:%M:%S.%L',
                     second: '%H:%M:%S',
@@ -221,7 +254,7 @@ function drawPaperGoldKLine() {
                     week: '%m-%d',
                     month: '%y-%m',
                     year: '%Y'
-                }
+                },
             },
             yAxis: [{
                 labels: {
