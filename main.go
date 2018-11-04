@@ -43,9 +43,16 @@ func main() {
 			Usage: "Import market data from file into database",
 			Flags: []cli.Flag{
 				pg.InfileFlag,
+				pg.StartDateFlag,
+				pg.EndDateFlag,
 				pg.OnlyTxOpenFlag,
 			},
 			Action: pg.Setup(market.Import),
+		},
+		cli.Command{
+			Name:   "autosave",
+			Usage:  "Autosave market data into file daily",
+			Action: pg.Setup(market.Autosave),
 		},
 		cli.Command{
 			Name:   "server",

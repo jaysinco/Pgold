@@ -47,7 +47,7 @@ var (
 	}
 	TaskSetFlag = cli.StringFlag{
 		Name:  "task,t",
-		Value: "market, server, realtime",
+		Value: "market, server, realtime, autosave",
 		Usage: "run multi tasks concurrently as per `LIST`",
 	}
 	StartDateFlag = cli.StringFlag{
@@ -181,16 +181,23 @@ func ParseDate(yymmdd string) (time.Time, error) {
 
 // TomlConfig stands for configure file
 type TomlConfig struct {
-	DB     DBInfo `toml:"database"`
-	Server ServerInfo
-	Mail   MailInfo
-	Policy PolicyInfo
+	DB       DBInfo `toml:"database"`
+	Server   ServerInfo
+	Autosave AutosaveInfo
+	Mail     MailInfo
+	Policy   PolicyInfo
 }
 
 // ServerInfo collects show server information
 type ServerInfo struct {
 	Port    int
 	Basedir string
+}
+
+// AutosaveInfo collects autosave parameter
+type AutosaveInfo struct {
+	Hour    float32
+	Savedir string
 }
 
 // DBInfo collects database connection information
