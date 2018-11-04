@@ -43,7 +43,8 @@ function drawPaperGoldTick() {
     var end = Math.floor(Date.parse(date + ' 23:59:59') / 1000);
     $.getJSON('/papergold/price/tick/json/by/timestamp?start=' + start + '&end=' + end, function (data) {
         if (data.length == 0) {
-            document.getElementById('pg_price').innerHTML = "NO DATA FOUND ON " + date
+            document.getElementById('pg_price').innerHTML = "";
+            alert("NO DATA FOUND ON " + date);
             document.getElementById('tick_date').style.display = '';
             drawRandPoem();
             return
@@ -51,10 +52,10 @@ function drawPaperGoldTick() {
         var pgcs = [];
         var ymax = -1.0;
         var ymin = 9999.0;
-        var scale = Math.ceil(data.length / (24 * 60 * 2) * 15)
+        var scale = Math.ceil(data.length / (24 * 60 * 2) * 15);
         for (var i = 0; i < data.length; i += 1) {
             if (i % scale != 0 && (i != data.length - 1)) {
-                continue
+                continue;
             }
             if (data[i].p > ymax) {
                 ymax = data[i].p;
@@ -67,20 +68,22 @@ function drawPaperGoldTick() {
                 data[i].p
             ]);
         }
-        var ylimax = 0.0;
-        var ylimin = 0.0;
-        var W = 4;
-        var R = 2.8 / 5.0;
-        if (ymax - ymin < W) {
-            ylimax = (W - (ymax - ymin)) * R + ymax;
-            ylimin = ymin - (W - (ymax - ymin)) * (1 - R);
-        } else {
-            ylimax = 0.5 + ymax;
-            ylimin = ymin - 0.5;
+        var ylimax = Math.ceil(ymax * 2) / 2 + 0.5;
+        var ylimin = Math.floor(ymin * 2) / 2 - 0.5;
+        var plotBandsList = [];
+        var bandNum = Math.ceil(ylimax - ylimin) * 2;
+        var bandSep = 0.5;
+        for (var i = 0; i < bandNum; i++) {
+            plotBandsList.push({
+                from: ylimin + i * bandSep,
+                to: ylimin + (i + 1) * bandSep,
+                color: i % 2 == 0 ? 'rgba(68, 170, 213, 0.1)' : 'rgba(255, 255, 255,0.1)',
+            })
         }
         $('#pg_price').highcharts({
             chart: {
-                zoomType: 'x',
+                panning: false,
+                pinchType: '',
                 height: 400
             },
             credits: {
@@ -95,7 +98,6 @@ function drawPaperGoldTick() {
                 }
             },
             xAxis: {
-                gridLineWidth: 1,
                 type: 'datetime',
                 dateTimeLabelFormats: {
                     millisecond: '%H:%M:%S.%L',
@@ -111,10 +113,10 @@ function drawPaperGoldTick() {
                 minPadding: 0,
                 maxPadding: 0,
                 min: (start - 1000) * 1000,
-                //tickPixelInterval: 50,
                 minRange: (end - start + 1000) * 1000,
             },
             tooltip: {
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
                 dateTimeLabelFormats: {
                     millisecond: '%H:%M:%S.%L',
                     second: '%H:%M:%S',
@@ -128,9 +130,16 @@ function drawPaperGoldTick() {
                 style: {
                     fontSize: "11px",
                 },
+                borderWidth: 1.5,
+                borderRadius: 20,
+                borderColor: 'rgba(50, 50, 50, 0.8)',
+                shadow: true,
+                split: false,
             },
             yAxis: {
+                gridLineWidth: 0,
                 lineWidth: 2,
+                minTickInterval: 0.5,
                 opposite: true,
                 labels: {
                     align: 'right',
@@ -143,6 +152,7 @@ function drawPaperGoldTick() {
                         fontFamily: "Arial",
                     }
                 },
+                plotBands: plotBandsList,
                 max: ylimax,
                 min: ylimin,
             },
@@ -154,13 +164,14 @@ function drawPaperGoldTick() {
                 name: '银行买入价',
                 data: pgcs,
                 threshold: null,
-                lineWidth: 2,
+                lineWidth: 3,
+                //color: '#606060',
                 marker: {
                     radius: 1.5,
                 },
                 states: {
                     hover: {
-                        lineWidth: 2,
+                        lineWidth: 3,
                     }
                 },
             }],
@@ -187,37 +198,36 @@ function drawPaperGoldKLine() {
                 enabled: false
             },
             chart: {
-                height: 400
+                panning: false,
+                pinchType: '',
+                height: 400,
             },
             rangeSelector: {
                 allButtonsEnabled: true,
                 buttons: [{
-                    type: 'month',
-                    count: 1,
+                    type: 'day',
+                    count: 35,
                     text: 'Day',
                     dataGrouping: {
                         forced: true,
                         units: [['day', [1]]]
                     }
-                }, {
-                    type: 'all',
-                    text: 'Week',
-                    dataGrouping: {
-                        forced: true,
-                        units: [['week', [1]]]
-                    }
-                }, {
-                    type: 'all',
-                    text: 'Month',
-                    dataGrouping: {
-                        forced: true,
-                        units: [['month', [1]]]
-                    }
                 }],
+                buttonPosition: {
+                    x: 119,
+                    y: 8,
+                },
                 buttonTheme: {
                     width: 60
                 },
-                selected: 0
+                selected: 0,
+                inputEnabled: false,
+            },
+            navigator: {
+                margin: 20,
+            },
+            scrollbar: {
+                minWidth: 22,
             },
             title: {
                 text: 'ICBC Paper Gold Price',
@@ -228,20 +238,27 @@ function drawPaperGoldKLine() {
                 }
             },
             tooltip: {
+                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                borderWidth: 0,
+                borderRadius: 0,
                 pointFormatter: function () {
                     for (var i = 0; i < pgklines.length; i++) {
                         if (pgklines[i][0] == this.x) {
                             return "<span style=\"color:#FF6347\">●</span> 银行买入价<br/>" +
-                                "最高: <b>" + pgklines[i][2].toFixed(2) + "</b><br/>开盘: <b>" + pgklines[i][1].toFixed(2) + "</b><br/>" +
-                                "收盘: <b>" + pgklines[i][4].toFixed(2) + "</b><br/>最低: <b>" + pgklines[i][3].toFixed(2) + "</b><br/>" +
-                                "涨幅: <b>" + ((pgklines[i][4] - pgklines[i][1]) / pgklines[i][1] * 100).toFixed(2) + "%</b>"
-
+                                "高: <b>" + pgklines[i][2].toFixed(2) + "</b> 开: <b>" + pgklines[i][1].toFixed(2) + "</b> " +
+                                "幅: <b>" + ((pgklines[i][4] - pgklines[i][1]) / pgklines[i][1] * 100).toFixed(2) + "%</b><br/>" +
+                                "低: <b>" + pgklines[i][3].toFixed(2) + "</b> 收: <b>" + pgklines[i][4].toFixed(2) + "</b>"
                         }
                     }
                 },
                 style: {
-                    fontSize: "11px",
+                    fontSize: "10px",
                 },
+                positioner: function () {
+                    return { x: 0, y: 40 };
+                },
+                shadow: false,
+                split: false,
             },
             xAxis: {
                 gridLineWidth: 1,
@@ -255,6 +272,7 @@ function drawPaperGoldKLine() {
                     month: '%y-%m',
                     year: '%Y'
                 },
+                crosshair: true,
             },
             yAxis: [{
                 labels: {
@@ -264,7 +282,8 @@ function drawPaperGoldKLine() {
                 title: {
                     text: 'CNY'
                 },
-                lineWidth: 2
+                lineWidth: 2,
+                crosshair: true,
             }],
             series: [{
                 type: 'candlestick',

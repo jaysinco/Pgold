@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jaysinco/Pgold/pg"
 	"github.com/urfave/cli"
@@ -189,9 +190,31 @@ func getPoemSet(filename string) ([]*poetry, error) {
 			continue
 		}
 		pm := &poetry{parts[0], parts[1], strings.Split(parts[2], "/")}
-		set = append(set, pm)
+		if checkLength(pm.Paragraphs) {
+			set = append(set, pm)
+		}
 	}
 	return set, nil
+}
+
+func checkLength(para []string) bool {
+	if len(para) == 0 {
+		return false
+	}
+	max, min := 0, 999999
+	for _, s := range para {
+		c := utf8.RuneCountInString(s)
+		if c > max {
+			max = c
+		}
+		if c < min {
+			min = c
+		}
+	}
+	if max >= 25 || min <= 7 {
+		return false
+	}
+	return true
 }
 
 type poetry struct {
