@@ -4,6 +4,19 @@
     <meta charset="utf-8">
     <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0" name="viewport" />
     <title>Paper Gold Plot</title>
+    <style type="text/css">
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            display: none;
+        }
+
+        input[type="date"]::-webkit-clear-button {
+            display: none;
+        }
+
+        input[type="date"]::-webkit-inner-spin-button {
+            display: none;
+        }
+    </style>
     <script src="../js/jquery.js"></script>
     <script src="../js/highstock.js"></script>
     <script src="../js/poem.js"></script>
@@ -12,16 +25,16 @@
 
 <body>
 
-    <div id="pg_price" style="width:350px;height:400px;"></div>
-    <div style='width:350px'>
-        <button style="outline:none;border:none;background-color:#3E8CD0;color:white;font-size:15px;height:28px;width:60px;border-radius:15px;font-family:Arial"
+    <div id="pg_price"></div>
+    <div id="under_area">
+        <button style="outline:none;border:none;background-color:#3E8CD0;color:white;font-size:95%;height:80%;width:18%;border-radius:25px;font-family:Arial"
             id="toggler" onclick="toggle()">
-            <div text-align="center">toggle</div>
+            <div text-align="center">Switch</div>
         </button>
-        <input style="outline:none;border:none;font-size:13px;position: absolute;left:243px;border-radius:15px;font-family:Arial;background-color:white;color:black;height:28px;width:115px;vertical-align:center;text-align:left"
+        <input style="outline:none;border:none;font-size:90%;position:relative;left:40%;font-family:Arial;background-color:transparent;color:black;height:75%;width:40%;vertical-align:center;text-align:center;"
             id="tick_date" type="date" onchange="drawPaperGoldTick()" />
     </div>
-    <div id="rnd_poem" style="position:relative;width:350px;top:5px;text-align:right;"></div>
+    <div id="rnd_poem" style="position:relative;text-align:right;"></div>
 </body>
 
 </html>

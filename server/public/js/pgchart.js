@@ -1,4 +1,18 @@
+var fitWidth = window.innerWidth * 0.979;
+if (fitWidth > 450) {
+    fitWidth = 450
+}
+var charWidth = fitWidth;
+var charHeight = fitWidth * 400 / 350;
+var state = null;
+
 $(function () {
+    document.getElementById('pg_price').style.height = charHeight;
+    document.getElementById('pg_price').style.width = charWidth;
+    document.getElementById('under_area').style.width = fitWidth;
+    document.getElementById('under_area').style.height = fitWidth * 0.08;
+    document.getElementById('rnd_poem').style.width = fitWidth * 0.97;
+
     Highcharts.setOptions({
         lang: {
             rangeSelectorZoom: ''
@@ -21,8 +35,6 @@ $(function () {
     drawPaperGoldTick();
     state = "kline";
 });
-
-var state = null;
 
 function toggle() {
     if (state == "kline") {
@@ -84,18 +96,28 @@ function drawPaperGoldTick() {
             chart: {
                 panning: false,
                 pinchType: '',
-                height: 400
+                height: charHeight,
+                width: charWidth,
             },
             credits: {
                 enabled: false
             },
-            title: {
-                text: 'ICBC Paper Gold Price',
+            subtitle: {
+                text: "分时图",
+                align: "center",
                 style: {
-                    fontSize: "20px",
-                    //fontWeight: "bold",
-                    fontFamily: "Arial",
+                    fontSize: "110%",
                 }
+            },
+            title: {
+                text: "工商银行人民币账户黄金",
+                margin: 5,
+                align: "center",
+                style: {
+                    fontWeight: "bold",
+                    color: "rgba(0, 0, 0, 0.8)",
+                    fontSize: "145%",
+                },
             },
             xAxis: {
                 type: 'datetime',
@@ -126,9 +148,6 @@ function drawPaperGoldTick() {
                     week: '%m-%d',
                     month: '%Y-%m',
                     year: '%Y'
-                },
-                style: {
-                    fontSize: "11px",
                 },
                 borderWidth: 1.5,
                 borderRadius: 20,
@@ -200,7 +219,8 @@ function drawPaperGoldKLine() {
             chart: {
                 panning: false,
                 pinchType: '',
-                height: 400,
+                height: charHeight,
+                width: charWidth,
             },
             rangeSelector: {
                 allButtonsEnabled: true,
@@ -229,13 +249,22 @@ function drawPaperGoldKLine() {
             scrollbar: {
                 minWidth: 22,
             },
-            title: {
-                text: 'ICBC Paper Gold Price',
+            subtitle: {
+                text: "日K线图",
+                align: "center",
                 style: {
-                    fontSize: "20px",
-                    //fontWeight: "bold",
-                    fontFamily: "Arial",
+                    fontSize: "110%",
                 }
+            },
+            title: {
+                text: "工商银行人民币账户黄金",
+                margin: 5,
+                align: "center",
+                style: {
+                    fontWeight: "bold",
+                    color: "rgba(0, 0, 0, 0.8)",
+                    fontSize: "145%",
+                },
             },
             tooltip: {
                 backgroundColor: 'rgba(255, 255, 255, 0.5)',
@@ -252,10 +281,10 @@ function drawPaperGoldKLine() {
                     }
                 },
                 style: {
-                    fontSize: "10px",
+                    fontSize: "90%",
                 },
                 positioner: function () {
-                    return { x: 0, y: 40 };
+                    return { x: 0, y: 46 };
                 },
                 shadow: false,
                 split: false,
