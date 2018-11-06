@@ -35,6 +35,7 @@ func Run(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("server: prepare poem set: %v", err)
 	}
+	log.Printf("[SERVER] %d poems loaded\n", len(pmset))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -194,6 +195,7 @@ func getPoemSet(filename string) ([]*poetry, error) {
 			set = append(set, pm)
 		}
 	}
+
 	return set, nil
 }
 
@@ -211,7 +213,7 @@ func checkLength(para []string) bool {
 			min = c
 		}
 	}
-	if max >= 25 || min <= 7 {
+	if max > 16 || min < 8 {
 		return false
 	}
 	return true

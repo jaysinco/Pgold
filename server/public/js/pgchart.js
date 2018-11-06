@@ -55,11 +55,7 @@ function drawPaperGoldTick() {
     var end = Math.floor(Date.parse(date + ' 23:59:59') / 1000);
     $.getJSON('/papergold/price/tick/json/by/timestamp?start=' + start + '&end=' + end, function (data) {
         if (data.length == 0) {
-            document.getElementById('pg_price').innerHTML = "";
             alert("NO DATA FOUND ON " + date);
-            document.getElementById('tick_date').style.display = '';
-            drawRandPoem();
-            return
         }
         var pgcs = [];
         var ymax = -1.0;
@@ -134,7 +130,7 @@ function drawPaperGoldTick() {
                 crosshair: true,
                 minPadding: 0,
                 maxPadding: 0,
-                min: (start - 1000) * 1000,
+                min: data.length == 0 ? start * 1000 : (start - 1000) * 1000,
                 minRange: (end - start + 1000) * 1000,
             },
             tooltip: {
@@ -234,8 +230,8 @@ function drawPaperGoldKLine() {
                     }
                 }],
                 buttonPosition: {
-                    x: 119,
-                    y: 8,
+                    x: charWidth * 0.34,
+                    y: charHeight * 0.02,
                 },
                 buttonTheme: {
                     width: 60
