@@ -8,6 +8,7 @@ import (
 	"github.com/jaysinco/Pgold/market"
 	"github.com/jaysinco/Pgold/pg"
 	"github.com/jaysinco/Pgold/policy"
+	"github.com/jaysinco/Pgold/policy/deep"
 	"github.com/jaysinco/Pgold/server"
 	_ "github.com/lib/pq"
 	"github.com/urfave/cli"
@@ -81,6 +82,16 @@ func main() {
 				pg.TaskSetFlag,
 			},
 			Action: pg.Setup(control.MutltiTask),
+		},
+		cli.Command{
+			Name:  "dpgen",
+			Usage: "Generate deep training data",
+			Flags: []cli.Flag{
+				pg.OutfileFlag,
+				pg.StartDateFlag,
+				pg.EndDateFlag,
+			},
+			Action: pg.Setup(deep.Generate),
 		},
 	}
 	if err := app.Run(os.Args); err != nil {

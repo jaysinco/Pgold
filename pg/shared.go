@@ -225,4 +225,7 @@ type PolicyInfo struct {
 	RandTradeFreqPerDay float64
 	WaveThreshold       float32
 	WaveIntervalMin     int
+	DeepRateIntervalMin int
+	DeepRateBuyLimit    float32
+	DeepRateSellLimit   float32
 }
